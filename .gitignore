@@ -1,0 +1,30 @@
+# Gradle / builds
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IDE
+.idea/
+*.iml
+captures/
+
+# Local config
+local.properties
+
+# Outputs
+*.apk
+*.aab
+
+# Dumps / grandes
+*.hprof
+
+# NDK (si aplica)
+.cxx/
+externalNativeBuild/
+
+# Firebase (opcional ignóralo si repo público)
+google-services.json
+
+# OS / misc
+.DS_Store
+*.log
