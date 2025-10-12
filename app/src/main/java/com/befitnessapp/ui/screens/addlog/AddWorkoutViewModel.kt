@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.befitnessapp.data.repository.WorkoutRepository
-import com.befitnessapp.domain.catalog.Catalogo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -15,21 +14,16 @@ data class ExerciseEntry(
     val sets: MutableList<Pair<Int, Float>> = mutableListOf() // (reps, weight)
 )
 
-data class PrItem(
-    val exerciseId: Int,
-    val exerciseName: String,
-    val metricLabel: String,   // p.ej. "Peso máx"
-    val displayValue: String   // p.ej. "120.0"
-)
-
 class AddWorkoutViewModel(
     private val repo: WorkoutRepository
 ) : ViewModel() {
 
+    private val _date = MutableStateFlow(LocalDate.now())
+    val date: StateFlow<LocalDate> = _date
+    fun setDate(d: LocalDate) { _date.value = d }
+
     private val _entries = MutableStateFlow<List<ExerciseEntry>>(emptyList())
     val entries: StateFlow<List<ExerciseEntry>> = _entries
-
-    val sessionPrs = MutableStateFlow<List<PrItem>>(emptyList())
 
     fun addExercise(exerciseId: Int) {
         if (_entries.value.any { it.exerciseId == exerciseId }) return
@@ -64,56 +58,19 @@ class AddWorkoutViewModel(
         }
     }
 
-
-    suspend fun detectAndSetSessionPrs(): List<PrItem> {
-        val pending = _entries.value
-            .filter { it.sets.isNotEmpty() }
-            .associate { it.exerciseId to it.sets.toList() }
-
-        if (pending.isEmpty()) {
-            sessionPrs.value = emptyList()
-            return emptyList()
-        }
-
-        val maxByExercise: Map<Int, Float> = repo.detectPRsForBatch(pending)
-        if (maxByExercise.isEmpty()) {
-            sessionPrs.value = emptyList()
-            return emptyList()
-        }
-
-        val all = Catalogo.searchExercises(query = "", groupId = null)
-        val prs = maxByExercise.map { (exId, w) ->
-            val name = all.firstOrNull { it.id == exId }?.name ?: "Ejercicio $exId"
-            PrItem(
-                exerciseId = exId,
-                exerciseName = name,
-                metricLabel = "Peso máx",
-                displayValue = formatOneDecimal(w)
-            )
-        }.sortedBy { it.exerciseName }
-
-        sessionPrs.value = prs
-        return prs
-    }
-
-    fun saveToday(notes: String?, onDone: () -> Unit, onError: (Throwable) -> Unit) {
+    fun save(notes: String?, onDone: () -> Unit, onError: (Throwable) -> Unit) {
         viewModelScope.launch {
             try {
                 val map = _entries.value
                     .filter { it.sets.isNotEmpty() }
                     .associate { it.exerciseId to it.sets.toList() }
-                repo.createWorkout(LocalDate.now(), notes, map)
+                repo.createWorkout(_date.value, notes, map)
                 _entries.value = emptyList()
                 onDone()
             } catch (t: Throwable) {
                 onError(t)
             }
         }
-    }
-
-    private fun formatOneDecimal(value: Float): String {
-        val s = String.format("%.1f", value)
-        return if (s.endsWith(".0")) s.dropLast(2) else s
     }
 
     companion object {

@@ -1,21 +1,24 @@
 package com.befitnessapp.ui.navigation
 
-sealed class Route(val path: String) {
-    // Pre-login
-    data object Onboarding : Route("onboarding")
-    data object Login : Route("login")
-    data object Register : Route("register")
+import java.time.LocalDate
 
-    // Post-login
-    data object Home : Route("home")
-    data object Dashboard : Route("dashboard")
-    data object Library : Route("library")
-    data object MuscleMap : Route("musclemap")
-    data object WorkoutLog : Route("workoutlog")
-    data object AddLog : Route("addlog")
-    data object Recommendations : Route("recommendations")
-    data object Routines : Route("routines")
-    data object Calendar : Route("calendar")
-    data object Profile : Route("profile")
-    data object Settings : Route("settings")
+sealed class Route(val path: String) {
+    object Onboarding : Route("onboarding")
+    object Login : Route("login")
+    object Register : Route("register")
+    object Home : Route("home")
+    object Dashboard : Route("dashboard")
+    object Library : Route("library")
+    object MuscleMap : Route("musclemap")
+    object WorkoutLog : Route("workoutlog")
+    object AddLog : Route("addlog")
+    object Recommendations : Route("recommendations")
+    object Routines : Route("routines")
+    object Calendar : Route("calendar")
+    object Profile : Route("profile")
+    object Settings : Route("settings")
 }
+
+
+fun addLogWithDate(date: LocalDate?): String =
+    if (date != null) "${Route.AddLog.path}?date=$date" else Route.AddLog.path

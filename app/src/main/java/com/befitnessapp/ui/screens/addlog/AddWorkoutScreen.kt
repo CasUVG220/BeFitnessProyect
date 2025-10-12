@@ -1,30 +1,56 @@
 package com.befitnessapp.ui.screens.addlog
 
+import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.befitnessapp.Graph
 import com.befitnessapp.domain.catalog.Catalogo
 import com.befitnessapp.domain.catalog.Exercise
 import com.befitnessapp.domain.catalog.MuscleGroup
-import androidx.compose.material3.ColorScheme
-import androidx.compose.ui.graphics.Color
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import java.util.Locale
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddWorkoutScreen(onBack: () -> Unit) {
+fun AddWorkoutScreen(
+    onBack: () -> Unit,
+    initialDate: LocalDate? = null     // <- NUEVO
+) {
     val vm: AddWorkoutViewModel =
         viewModel(factory = AddWorkoutViewModel.factory(Graph.workoutRepository))
 
+    // si venimos del calendario, setear la fecha una sola vez
+    LaunchedEffect(initialDate) {
+        initialDate?.let { vm.setDate(it) }
+    }
+
+    // ===== fecha objetivo =====
+    val date by vm.date.collectAsState()
+    val ctx = LocalContext.current
+    val dateFmt = remember { DateTimeFormatter.ISO_DATE }
+    var showDatePicker by remember { mutableStateOf(false) }
+    if (showDatePicker) {
+        LaunchedEffect(Unit) {
+            val d = date
+            DatePickerDialog(
+                ctx,
+                { _, y, m, day -> vm.setDate(LocalDate.of(y, m + 1, day)) },
+                d.year, d.monthValue - 1, d.dayOfMonth
+            ).show()
+            showDatePicker = false
+        }
+    }
+
+    // búsqueda / filtro
     var query by remember { mutableStateOf("") }
     var selectedGroup: MuscleGroup? by remember { mutableStateOf(null) }
     val results by remember(query, selectedGroup) {
@@ -36,16 +62,16 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
         )
     }
 
+    // sheet de edición por ejercicio (full screen)
     val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var sheetExercise by remember { mutableStateOf<Exercise?>(null) }
     var sheetSets by remember { mutableStateOf(listOf("10" to "20")) } // filas (reps, peso) como strings
 
-    // pop up con resumen final
+    // sheet de RESUMEN final (full screen)
     val summarySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var summaryData by remember { mutableStateOf<WorkoutSummary?>(null) }
 
     val entries by vm.entries.collectAsState()
-    val scope = rememberCoroutineScope()
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -55,6 +81,11 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Añadir ejercicio al workout", style = MaterialTheme.typography.headlineSmall)
+
+            // ======= selector de fecha =======
+            OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Fecha: ${dateFmt.format(date)}")
+            }
 
             // Buscar
             OutlinedTextField(
@@ -70,10 +101,7 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                AssistChip(
-                    onClick = { selectedGroup = null },
-                    label = { Text("Todos") }
-                )
+                AssistChip(onClick = { selectedGroup = null }, label = { Text("Todos") })
                 Catalogo.allGroups.forEach { grp ->
                     val selected = selectedGroup?.id == grp.id
                     AssistChip(
@@ -112,42 +140,35 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
                 }
             }
 
-            // loggear el workout al historia
+            // Botón final: LOGGEAR
             Button(
                 onClick = {
-                    scope.launch {
-                        val snapshot = entries.mapNotNull { e ->
-                            val ex = Catalogo.allExercises.firstOrNull { it.id == e.exerciseId }
-                                ?: return@mapNotNull null
-                            val sets = e.sets.map { (reps, weight) -> SetSnapshot(reps, weight) }
-                            ExerciseSnapshot(
-                                exerciseId = e.exerciseId,
-                                exerciseName = ex.name,
-                                sets = sets
-                            )
-                        }
-
-                        // 2) Detectar PRs de la sesión
-                        val prs: List<PrItem> = vm.detectAndSetSessionPrs()
-
-                        // 3) Calcular resumen con PRs (solo se muestran si hay)
-                        val computed = computeSummary(snapshot, prs = prs)
-                        summaryData = computed
-
-                        // 4) Guardar en DB
-                        vm.saveToday(
-                            notes = null,
-                            onDone = { /* el pop up ya se muestra */ },
-                            onError = { /* TODO: snackbar si quieres */ }
+                    // 1) Snapshot local para el resumen
+                    val snapshot = entries.mapNotNull { e ->
+                        val ex = Catalogo.allExercises.firstOrNull { it.id == e.exerciseId } ?: return@mapNotNull null
+                        val sets = e.sets.map { (reps, weight) -> SetSnapshot(reps = reps, weight = weight) }
+                        ExerciseSnapshot(
+                            exerciseId = e.exerciseId,
+                            exerciseName = ex.name,
+                            sets = sets
                         )
                     }
+                    val computed = computeSummary(snapshot)
+                    summaryData = computed
+
+                    // 2) Guardar en DB usando la FECHA del VM
+                    vm.save(
+                        notes = null,
+                        onDone = { /* el sheet se muestra abajo */ },
+                        onError = { /* TODO: snackbar si quieres */ }
+                    )
                 },
                 enabled = entries.any { it.sets.isNotEmpty() },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Loggear Workout") }
         }
 
-        // pop up
+        // ====== SHEET: Editor por ejercicio (pantalla completa) ======
         if (sheetExercise != null) {
             ModalBottomSheet(
                 onDismissRequest = { sheetExercise = null },
@@ -195,10 +216,7 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(
-                                onClick = {
-                                    if (sheetSets.size > 1)
-                                        sheetSets = sheetSets.toMutableList().also { it.removeAt(idx) }
-                                },
+                                onClick = { if (sheetSets.size > 1) sheetSets = sheetSets.toMutableList().also { it.removeAt(idx) } },
                                 enabled = sheetSets.size > 1
                             ) { Text("Eliminar") }
                         }
@@ -219,14 +237,13 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
                             }
                             if (parsed.isNotEmpty()) {
                                 val exId = ex.id
-                                // Si no existe en la lista temporal, se agrega
                                 if (entries.none { it.exerciseId == exId }) {
                                     vm.addExercise(exId)
                                 }
                                 parsed.forEach { (reps, weight) ->
                                     vm.addSet(exId, reps = reps, weight = weight)
                                 }
-                                sheetExercise = null // cerrar editor
+                                sheetExercise = null
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -237,10 +254,10 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
             }
         }
 
-        // pop up de resumen final
+        // ====== SHEET: Resumen final (pantalla completa) ======
         summaryData?.let { summary ->
             ModalBottomSheet(
-                onDismissRequest = { /* bloquear dismiss externo */ },
+                onDismissRequest = { /* bloquear dismiss por fuera para forzar botón */ },
                 sheetState = summarySheetState,
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
@@ -248,7 +265,7 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
                     summary = summary,
                     onClose = {
                         summaryData = null
-                        onBack() // volvemos
+                        onBack()
                     }
                 )
             }
@@ -256,22 +273,21 @@ fun AddWorkoutScreen(onBack: () -> Unit) {
     }
 }
 
+/* ======= Modelos, summary y helpers ======= */
+
 private data class SetSnapshot(val reps: Int, val weight: Float)
 private data class ExerciseSnapshot(
     val exerciseId: Int,
     val exerciseName: String,
     val sets: List<SetSnapshot>
 )
-
 private data class WorkoutSummary(
     val totalVolume: Float,
     val totalReps: Int,
     val totalSets: Int,
     val totalExercises: Int,
-    val topExercisesByVolume: List<ExerciseVolume>, // top 3
-    val prs: List<PrItem> = emptyList()
+    val topExercisesByVolume: List<ExerciseVolume> // top 3
 )
-
 private data class ExerciseVolume(
     val exerciseName: String,
     val volume: Float,
@@ -280,10 +296,7 @@ private data class ExerciseVolume(
     val topWeight: Float
 )
 
-private fun computeSummary(
-    snap: List<ExerciseSnapshot>,
-    prs: List<PrItem> = emptyList()
-): WorkoutSummary {
+private fun computeSummary(snap: List<ExerciseSnapshot>): WorkoutSummary {
     var volume = 0f
     var repsTotal = 0
     var setsTotal = 0
@@ -317,8 +330,7 @@ private fun computeSummary(
         totalReps = repsTotal,
         totalSets = setsTotal,
         totalExercises = snap.size,
-        topExercisesByVolume = byEx,
-        prs = prs
+        topExercisesByVolume = byEx
     )
 }
 
@@ -328,12 +340,7 @@ private fun ExerciseRow(
     onAdd: () -> Unit
 ) {
     Card {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
             Text("Patrón: ${exercise.pattern}", style = MaterialTheme.typography.bodySmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -365,12 +372,7 @@ private fun MuscleInfoCard(exercise: Exercise) {
     }
 
     Surface(shape = MaterialTheme.shapes.medium, tonalElevation = 2.dp) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(Modifier.fillMaxWidth().height(160.dp)) {
                 Text(
                     "Vista muscular (placeholder)",
@@ -385,11 +387,7 @@ private fun MuscleInfoCard(exercise: Exercise) {
 }
 
 @Composable
-private fun StatCard(
-    title: String,
-    value: String,
-    container: ColorScheme.() -> Color
-) {
+private fun StatCard(title: String, value: String, container: ColorScheme.() -> androidx.compose.ui.graphics.Color) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = container(MaterialTheme.colorScheme),
@@ -418,12 +416,12 @@ private fun WorkoutSummaryContent(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Volumen total", formatFloat(summary.totalVolume)) { primaryContainer }
-                StatCard("Reps totales", "${summary.totalReps}") { secondaryContainer }
+                StatCard("Volumen total", "${formatFloat(summary.totalVolume)}", { primaryContainer })
+                StatCard("Reps totales", "${summary.totalReps}", { secondaryContainer })
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Ejercicios", "${summary.totalExercises}") { tertiaryContainer }
-                StatCard("Sets", "${summary.totalSets}") { surfaceVariant }
+                StatCard("Ejercicios", "${summary.totalExercises}", { tertiaryContainer })
+                StatCard("Sets", "${summary.totalSets}", { surfaceVariant })
             }
         }
 
@@ -431,29 +429,12 @@ private fun WorkoutSummaryContent(
             Text("Highlights", style = MaterialTheme.typography.titleMedium)
             summary.topExercisesByVolume.forEach { ex ->
                 Card {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(ex.exerciseName, style = MaterialTheme.typography.titleSmall)
                         Text("Volumen: ${formatFloat(ex.volume)}", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            "Reps: ${ex.reps} · Sets: ${ex.sets} · Peso máx: ${formatFloat(ex.topWeight)}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        Text("Reps: ${ex.reps} · Sets: ${ex.sets} · Peso máx: ${formatFloat(ex.topWeight)}", style = MaterialTheme.typography.bodySmall)
                     }
                 }
-            }
-        }
-
-        // PRs
-        if (summary.prs.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Text("🎉 ¡Nuevos PRs!", style = MaterialTheme.typography.titleMedium)
-            summary.prs.forEach { pr ->
-                Text("• ${pr.exerciseName} — ${pr.metricLabel}: ${pr.displayValue}", style = MaterialTheme.typography.bodyMedium)
             }
         }
 
@@ -464,6 +445,6 @@ private fun WorkoutSummaryContent(
 }
 
 private fun formatFloat(value: Float): String {
-    val s = String.format(Locale.getDefault(), "%.1f", value)
+    val s = String.format("%.1f", value)
     return if (s.endsWith(".0")) s.dropLast(2) else s
 }
