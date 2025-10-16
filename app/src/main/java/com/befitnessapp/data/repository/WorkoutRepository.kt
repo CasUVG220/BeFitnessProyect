@@ -1,5 +1,6 @@
 package com.befitnessapp.data.repository
 
+import com.befitnessapp.data.local.dao.ExerciseAgg
 import com.befitnessapp.data.local.dao.WorkoutDao
 import com.befitnessapp.data.local.dao.WorkoutWithSets
 import com.befitnessapp.data.local.entity.WorkoutEntity
@@ -17,7 +18,6 @@ data class SetInput(
 )
 
 class WorkoutRepository(private val dao: WorkoutDao) {
-
 
     suspend fun createWorkout(
         date: LocalDate,
@@ -58,7 +58,6 @@ class WorkoutRepository(private val dao: WorkoutDao) {
 
         dao.insertWorkoutWithSets(workout, sets)
     }
-
 
     suspend fun replaceWorkout(
         workoutId: String,
@@ -104,6 +103,13 @@ class WorkoutRepository(private val dao: WorkoutDao) {
             }
         }
 
+    // agregacion algoritmo de recomendaciones
+
+    fun observeAggBetween(from: LocalDate, to: LocalDate): Flow<List<ExerciseAgg>> =
+        dao.observeAggBetween(from, to)
+
+    fun observeDaysWithLogsBetween(from: LocalDate, to: LocalDate): Flow<List<LocalDate>> =
+        dao.observeDaysWithLogsBetween(from, to)
 
     suspend fun detectPRsForBatch(
         setsByExercise: Map<Int, List<Pair<Int, Float>>>

@@ -15,9 +15,17 @@ data class WorkoutWithSets(
     val sets: List<WorkoutSetEntity>
 )
 
+// agregarcion por ejercicios
+data class ExerciseAgg(
+    val exerciseId: Int,
+    val sets: Int,
+    val reps: Int,
+    val volume: Float,
+    val lastDate: LocalDate?
+)
+
 @Dao
 interface WorkoutDao {
-
 
     @Upsert
     suspend fun upsertWorkout(workout: WorkoutEntity)
@@ -37,7 +45,6 @@ interface WorkoutDao {
     @Query("DELETE FROM workout_set WHERE workoutId = :workoutId")
     suspend fun deleteSetsByWorkoutId(workoutId: String)
 
-
     @Transaction
     suspend fun replaceWorkoutSets(
         workoutId: String,
@@ -49,7 +56,6 @@ interface WorkoutDao {
         deleteSetsByWorkoutId(workoutId)
         if (newSets.isNotEmpty()) upsertSets(newSets)
     }
-
 
     @Query(
         """
@@ -86,4 +92,35 @@ interface WorkoutDao {
         """
     )
     suspend fun getMaxWeightForExercise(exerciseId: Int): Float?
+
+    //NUEVO: Agregaciones para el algoritmo
+
+    @Query(
+        """
+        SELECT 
+            ws.exerciseId            AS exerciseId,
+            COUNT(*)                 AS sets,
+            COALESCE(SUM(ws.reps),0)                      AS reps,
+            COALESCE(SUM(ws.reps * ws.weight),0)          AS volume,
+            MAX(w.date)              AS lastDate
+        FROM workout_set ws
+        JOIN workout w ON w.id = ws.workoutId
+        WHERE ws.deleted = 0
+          AND w.deleted  = 0
+          AND w.date BETWEEN :from AND :to
+        GROUP BY ws.exerciseId
+        ORDER BY ws.exerciseId ASC
+        """
+    )
+    fun observeAggBetween(from: LocalDate, to: LocalDate): Flow<List<ExerciseAgg>>
+
+    @Query(
+        """
+        SELECT DISTINCT w.date
+        FROM workout w
+        WHERE w.deleted = 0 AND w.date BETWEEN :from AND :to
+        ORDER BY w.date ASC
+        """
+    )
+    fun observeDaysWithLogsBetween(from: LocalDate, to: LocalDate): Flow<List<LocalDate>>
 }
