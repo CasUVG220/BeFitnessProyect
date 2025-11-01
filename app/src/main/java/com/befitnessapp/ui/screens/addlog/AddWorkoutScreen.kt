@@ -2,11 +2,15 @@ package com.befitnessapp.ui.screens.addlog
 
 import android.app.DatePickerDialog
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -16,19 +20,22 @@ import com.befitnessapp.Graph
 import com.befitnessapp.domain.catalog.Catalogo
 import com.befitnessapp.domain.catalog.Exercise
 import com.befitnessapp.domain.catalog.MuscleGroup
+import com.befitnessapp.routines.RoutinesServiceLocator
+import com.befitnessapp.ui.screens.routines.RoutinePickerDialog
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddWorkoutScreen(
     onBack: () -> Unit,
-    initialDate: LocalDate? = null     // <- NUEVO
+    initialDate: LocalDate? = null
 ) {
     val vm: AddWorkoutViewModel =
         viewModel(factory = AddWorkoutViewModel.factory(Graph.workoutRepository))
 
-    // si venimos del calendario, setear la fecha una sola vez
+    // fecha inicial (desde calendario)
     LaunchedEffect(initialDate) {
         initialDate?.let { vm.setDate(it) }
     }
@@ -62,16 +69,26 @@ fun AddWorkoutScreen(
         )
     }
 
-    // sheet de edición por ejercicio (full screen)
+    // ============= Sheets ============
     val editSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var sheetExercise by remember { mutableStateOf<Exercise?>(null) }
-    var sheetSets by remember { mutableStateOf(listOf("10" to "20")) } // filas (reps, peso) como strings
+    var sheetSets by remember { mutableStateOf(listOf("10" to "20")) } // (reps, peso) como strings
 
-    // sheet de RESUMEN final (full screen)
     val summarySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var summaryData by remember { mutableStateOf<WorkoutSummary?>(null) }
 
+    val selectionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showSelection by remember { mutableStateOf(false) }
+
     val entries by vm.entries.collectAsState()
+
+    // ===== Rutinas (estables, sin inferencias raras)
+    val routinesContext = LocalContext.current
+    val routinesRepo = remember(routinesContext) { RoutinesServiceLocator.repository(routinesContext) }
+    val routinesState = remember(routinesRepo) { routinesRepo.observeRoutines() }
+        .collectAsState(initial = emptyList())
+    val routines = routinesState.value
+    var showRoutinePicker by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -82,12 +99,10 @@ fun AddWorkoutScreen(
         ) {
             Text("Añadir ejercicio al workout", style = MaterialTheme.typography.headlineSmall)
 
-            // ======= selector de fecha =======
             OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("Fecha: ${dateFmt.format(date)}")
             }
 
-            // Buscar
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
@@ -95,7 +110,6 @@ fun AddWorkoutScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Filtros por grupo
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -115,9 +129,16 @@ fun AddWorkoutScreen(
                         )
                     )
                 }
+                OutlinedButton(onClick = { showRoutinePicker = true }) {
+                    Text("Cargar rutina")
+                }
+                if (entries.isNotEmpty()) {
+                    OutlinedButton(onClick = { showSelection = true }) {
+                        Text("Ver selección (${entries.count { it.sets.isNotEmpty() }})")
+                    }
+                }
             }
 
-            // Resultados
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -140,10 +161,8 @@ fun AddWorkoutScreen(
                 }
             }
 
-            // Botón final: LOGGEAR
             Button(
                 onClick = {
-                    // 1) Snapshot local para el resumen
                     val snapshot = entries.mapNotNull { e ->
                         val ex = Catalogo.allExercises.firstOrNull { it.id == e.exerciseId } ?: return@mapNotNull null
                         val sets = e.sets.map { (reps, weight) -> SetSnapshot(reps = reps, weight = weight) }
@@ -156,11 +175,10 @@ fun AddWorkoutScreen(
                     val computed = computeSummary(snapshot)
                     summaryData = computed
 
-                    // 2) Guardar en DB usando la FECHA del VM
                     vm.save(
                         notes = null,
-                        onDone = { /* el sheet se muestra abajo */ },
-                        onError = { /* TODO: snackbar si quieres */ }
+                        onDone = { /* abre sheet */ },
+                        onError = { /* TODO snack */ }
                     )
                 },
                 enabled = entries.any { it.sets.isNotEmpty() },
@@ -168,7 +186,7 @@ fun AddWorkoutScreen(
             ) { Text("Loggear Workout") }
         }
 
-        // ====== SHEET: Editor por ejercicio (pantalla completa) ======
+        // ====== SHEET: Editor por ejercicio ======
         if (sheetExercise != null) {
             ModalBottomSheet(
                 onDismissRequest = { sheetExercise = null },
@@ -183,7 +201,7 @@ fun AddWorkoutScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(ex.name, style = MaterialTheme.typography.titleLarge)
-                    MuscleInfoCard(ex) // placeholder del “muñequito”
+                    MuscleInfoCard(ex)
                     Text("Patrón: ${ex.pattern}", style = MaterialTheme.typography.bodyMedium)
 
                     Text("Sets", style = MaterialTheme.typography.titleMedium)
@@ -239,25 +257,136 @@ fun AddWorkoutScreen(
                                 val exId = ex.id
                                 if (entries.none { it.exerciseId == exId }) {
                                     vm.addExercise(exId)
-                                }
-                                parsed.forEach { (reps, weight) ->
-                                    vm.addSet(exId, reps = reps, weight = weight)
+                                    parsed.forEach { (reps, weight) ->
+                                        vm.addSet(exId, reps = reps, weight = weight)
+                                    }
+                                } else {
+                                    vm.replaceSets(exerciseId = exId, newSets = parsed)
                                 }
                                 sheetExercise = null
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("Añadir al workout") }
+                    ) { Text("Guardar cambios") }
 
                     Spacer(Modifier.height(12.dp))
                 }
             }
         }
 
-        // ====== SHEET: Resumen final (pantalla completa) ======
+        // ====== SHEET: Selección actual ======
+        if (showSelection) {
+            ModalBottomSheet(
+                onDismissRequest = { showSelection = false },
+                sheetState = selectionSheetState,
+                dragHandle = { BottomSheetDefaults.DragHandle() }
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Tu selección (${entries.count { it.sets.isNotEmpty() }})",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    HorizontalDivider()
+
+                    if (entries.isEmpty()) {
+                        Text("Aún no has añadido ejercicios.", style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(entries) { e ->
+                                val ex = Catalogo.allExercises.firstOrNull { it.id == e.exerciseId }
+                                if (ex != null) {
+                                    Card {
+                                        Column(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(12.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Text(ex.name, style = MaterialTheme.typography.titleMedium)
+                                            e.sets.forEachIndexed { idx, (reps, w) ->
+                                                Text(
+                                                    "• Set ${idx + 1}: $reps reps · ${formatFloat(w)} kg",
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                            Row(
+                                                Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                TextButton(
+                                                    onClick = {
+                                                        sheetExercise = ex
+                                                        sheetSets = e.sets.map { (r, w) -> r.toString() to formatFloat(w) }
+                                                        showSelection = false
+                                                    }
+                                                ) { Text("Editar sets") }
+
+                                                IconButton(
+                                                    onClick = {
+                                                        val exId = e.exerciseId
+                                                        val remaining = entries.size - 1
+                                                        vm.removeExercise(exId)
+                                                        if (remaining <= 0) showSelection = false
+                                                    }
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Delete,
+                                                        contentDescription = "Quitar ejercicio"
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { showSelection = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Cerrar") }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        }
+
+        // ====== DIALOG: Picker de Rutina ======
+        if (showRoutinePicker) {
+            RoutinePickerDialog(
+                routines = routines,
+                onPick = { detail ->
+                    showRoutinePicker = false
+                    detail.exercises.forEach { ex ->
+                        val exId = ex.exerciseId
+                        if (entries.none { it.exerciseId == exId }) {
+                            vm.addExercise(exId)
+                        }
+                        ex.sets.forEach { s ->
+                            val reps = if (s.reps > 0) s.reps else 1
+                            val weight = if (s.weight.isFinite()) s.weight else 0f
+                            vm.addSet(exerciseId = exId, reps = reps, weight = weight)
+                        }
+                    }
+                    showSelection = true
+                },
+                onDismiss = { showRoutinePicker = false }
+            )
+        }
+
+        // ====== SHEET: Resumen final ======
         summaryData?.let { summary ->
             ModalBottomSheet(
-                onDismissRequest = { /* bloquear dismiss por fuera para forzar botón */ },
+                onDismissRequest = { /* sin dismiss externo */ },
                 sheetState = summarySheetState,
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
@@ -286,7 +415,7 @@ private data class WorkoutSummary(
     val totalReps: Int,
     val totalSets: Int,
     val totalExercises: Int,
-    val topExercisesByVolume: List<ExerciseVolume> // top 3
+    val topExercisesByVolume: List<ExerciseVolume>
 )
 private data class ExerciseVolume(
     val exerciseName: String,
@@ -416,7 +545,7 @@ private fun WorkoutSummaryContent(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Volumen total", "${formatFloat(summary.totalVolume)}", { primaryContainer })
+                StatCard("Volumen total", formatFloat(summary.totalVolume), { primaryContainer })
                 StatCard("Reps totales", "${summary.totalReps}", { secondaryContainer })
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -445,6 +574,6 @@ private fun WorkoutSummaryContent(
 }
 
 private fun formatFloat(value: Float): String {
-    val s = String.format("%.1f", value)
+    val s = String.format(Locale.US, "%.1f", value)
     return if (s.endsWith(".0")) s.dropLast(2) else s
 }

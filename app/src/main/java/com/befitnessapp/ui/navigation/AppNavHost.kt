@@ -18,7 +18,7 @@ import com.befitnessapp.ui.screens.musclemap.MuscleMapScreen
 import com.befitnessapp.ui.screens.onboarding.OnboardingScreen
 import com.befitnessapp.ui.screens.profile.ProfileScreen
 import com.befitnessapp.ui.screens.recommendations.RecommendationsScreen
-import com.befitnessapp.ui.screens.routines.RoutinesScreen
+import com.befitnessapp.ui.screens.routines.RoutinesScreen   // <- IMPORT CORRECTO
 import com.befitnessapp.ui.screens.settings.SettingsScreen
 import java.time.LocalDate
 
@@ -85,9 +85,13 @@ fun AppNavHost() {
         composable(Route.MuscleMap.path) { MuscleMapScreen(onBack = { nav.popBackStack() }) }
         composable(Route.WorkoutLog.path) { WorkoutLogScreen(onBack = { nav.popBackStack() }) }
         composable(Route.Recommendations.path) { RecommendationsScreen(onBack = { nav.popBackStack() }) }
-        composable(Route.Routines.path) { RoutinesScreen(onBack = { nav.popBackStack() }) }
         composable(Route.Profile.path) { ProfileScreen(onBack = { nav.popBackStack() }) }
         composable(Route.Settings.path) { SettingsScreen(onBack = { nav.popBackStack() }) }
+
+        // RUTINAS (usar la entrada pública)
+        composable(Route.Routines.path) {
+            RoutinesScreen(onBack = { nav.popBackStack() })
+        }
 
         // Calendario → abrir AddLog con fecha
         composable(Route.Calendar.path) {
@@ -121,3 +125,7 @@ fun AppNavHost() {
         }
     }
 }
+
+/** Helper para construir la ruta con fecha ISO. */
+private fun addLogWithDate(date: LocalDate): String =
+    "${Route.AddLog.path}?date=$date"
