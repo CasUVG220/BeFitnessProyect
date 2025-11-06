@@ -5,49 +5,60 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.befitnessapp.domain.routines.RoutineDetail
 import com.befitnessapp.routines.RoutinesServiceLocator
-import com.befitnessapp.domain.routines.RoutineDetail // tipo del repositorio
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
-/** Entrada pública usada por el AppNavHost. */
 @Composable
 fun RoutinesScreen(onBack: () -> Unit) {
     RoutinesRootScreen(onBack = onBack)
 }
 
-/** Pantalla raíz: Inicio → Lista → Builder */
 @Composable
 private fun RoutinesRootScreen(onBack: () -> Unit) {
     var mode by remember { mutableStateOf(Mode.Home) }
+    var selected: RoutineDetail? by remember { mutableStateOf(null) }
 
     when (mode) {
         Mode.Home -> RoutinesHome(
             onBack = onBack,
             goList = { mode = Mode.List },
-            goBuilder = { mode = Mode.Builder }
+            goBuilder = {
+                selected = null
+                mode = Mode.Builder
+            }
         )
         Mode.List -> RoutinesList(
             onBack = { mode = Mode.Home },
-            goBuilder = { mode = Mode.Builder }
+            goBuilder = {
+                selected = null
+                mode = Mode.Builder
+            },
+            onOpen = { detail ->
+                selected = detail
+                mode = Mode.Builder
+            }
         )
         Mode.Builder -> RoutineBuilderScreen(
-            onBack = { mode = Mode.Home }
+            onBack = { mode = Mode.Home },
+            initial = selected          // precarga al editar
         )
     }
 }
 
 private enum class Mode { Home, List, Builder }
-
-/* --------------------------- UI: Home --------------------------- */
 
 @Composable
 private fun RoutinesHome(
@@ -61,20 +72,17 @@ private fun RoutinesHome(
                 .fillMaxSize()
                 .padding(pad)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header simple (100% estable)
-            Surface(tonalElevation = 1.dp) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Rutinas", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.weight(1f))
-                    OutlinedButton(onClick = onBack) { Text("Volver") }
-                }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Rutinas", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.weight(1f))
+                OutlinedButton(onClick = onBack) { Text("Volver") }
             }
 
             Text("¿Qué deseas hacer?", style = MaterialTheme.typography.titleMedium)
@@ -83,32 +91,31 @@ private fun RoutinesHome(
                 Text("Mis rutinas")
             }
             OutlinedButton(onClick = goBuilder, modifier = Modifier.fillMaxWidth()) {
-                Text("Crear / Editar")
+                Text("Crear nueva")
             }
-
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Crea una rutina con ejercicios y sets base. Luego, desde “Añadir workout” puedes cargarla y ajustar sin modificar la rutina guardada.",
-                style = MaterialTheme.typography.bodyMedium
-            )
         }
     }
 }
 
-/* --------------------------- UI: List --------------------------- */
-
 @Composable
 private fun RoutinesList(
     onBack: () -> Unit,
-    goBuilder: () -> Unit
+    goBuilder: () -> Unit,
+    onOpen: (RoutineDetail) -> Unit
 ) {
     val ctx = LocalContext.current
     val repo = remember(ctx) { RoutinesServiceLocator.repository(ctx) }
+    val scope = rememberCoroutineScope()
 
-    // Tipado explícito para evitar inferencias raras
-    val routines: List<RoutineDetail> by remember(repo) {
-        repo.observeRoutines()
-    }.collectAsState(initial = emptyList())
+    var routines by remember { mutableStateOf<List<RoutineDetail>>(emptyList()) }
+    LaunchedEffect(repo) {
+        repo.observeRoutines().collectLatest { routines = it }
+    }
+
+    // estado para confirmar borrado desde la lista
+    var confirmDelete by remember { mutableStateOf(false) }
+    var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
+    var pendingDeleteName by remember { mutableStateOf("") }
 
     Scaffold { pad ->
         Column(
@@ -118,18 +125,15 @@ private fun RoutinesList(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header simple
-            Surface(tonalElevation = 1.dp) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Mis rutinas", style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.weight(1f))
-                    OutlinedButton(onClick = onBack) { Text("Volver") }
-                }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Mis rutinas", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.weight(1f))
+                OutlinedButton(onClick = onBack) { Text("Volver") }
             }
 
             if (routines.isEmpty()) {
@@ -142,7 +146,7 @@ private fun RoutinesList(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                itemsIndexed(routines) { index, r ->
+                itemsIndexed(routines) { _, r ->
                     val totalExercises = r.exercises.size
                     val totalSets = r.exercises.sumOf { it.sets.size }
 
@@ -153,28 +157,62 @@ private fun RoutinesList(
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // Título genérico para no depender del nombre del campo (name/title/nombre)
-                            Text("Rutina ${index + 1}", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                r.routine.name.ifBlank { "Rutina" },
+                                style = MaterialTheme.typography.titleMedium
+                            )
                             Text(
                                 "Ejercicios: $totalExercises · Sets totales: $totalSets",
                                 style = MaterialTheme.typography.bodySmall
                             )
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                OutlinedButton(onClick = { onOpen(r) }) { Text("Editar / Abrir") }
+                                Spacer(Modifier.width(8.dp))
+                                OutlinedButton(onClick = {
+                                    pendingDeleteId = r.routine.id
+                                    pendingDeleteName = r.routine.name.ifBlank { "Rutina" }
+                                    confirmDelete = true
+                                }) { Text("Borrar", color = MaterialTheme.colorScheme.error) }
+                            }
                         }
                     }
+                    HorizontalDivider()
                 }
             }
 
-            // Footer simple
             Row(
                 Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = onBack) { Text("Volver") }
-                Spacer(Modifier.weight(1f))
-                Button(onClick = goBuilder) { Text("Crear nueva") }
+                OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Volver") }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = goBuilder, modifier = Modifier.weight(1f)) { Text("Crear nueva") }
             }
         }
+    }
+
+    if (confirmDelete && pendingDeleteId != null) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            confirmButton = {
+                Button(onClick = {
+                    val id = pendingDeleteId!!
+                    confirmDelete = false
+                    scope.launch {
+                        repo.deleteRoutine(id)
+                    }
+                }) { Text("Borrar") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
+            },
+            title = { Text("Borrar rutina") },
+            text = { Text("¿Seguro que deseas borrar “$pendingDeleteName”? Esta acción no se puede deshacer.") }
+        )
     }
 }
