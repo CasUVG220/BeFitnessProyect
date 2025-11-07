@@ -3,62 +3,63 @@ package com.befitnessapp.ui.screens.routines
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.befitnessapp.domain.routines.RoutineDetail
 import com.befitnessapp.routines.RoutinesServiceLocator
+import com.befitnessapp.ui.screens.routines.nav.RoutinesRoute
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @Composable
 fun RoutinesScreen(onBack: () -> Unit) {
-    RoutinesRootScreen(onBack = onBack)
-}
+    val nav = rememberNavController()
+    NavHost(navController = nav, startDestination = RoutinesRoute.Home) {
 
-@Composable
-private fun RoutinesRootScreen(onBack: () -> Unit) {
-    var mode by remember { mutableStateOf(Mode.Home) }
-    var selected: RoutineDetail? by remember { mutableStateOf(null) }
+        // Home del módulo de Rutinas
+        composable<RoutinesRoute.Home> {
+            RoutinesHome(
+                onBack = onBack,
+                goList = { nav.navigate(RoutinesRoute.List) },
+                goBuilder = { nav.navigate(RoutinesRoute.Builder()) }
+            )
+        }
 
-    when (mode) {
-        Mode.Home -> RoutinesHome(
-            onBack = onBack,
-            goList = { mode = Mode.List },
-            goBuilder = {
-                selected = null
-                mode = Mode.Builder
+        // Lista de rutinas
+        composable<RoutinesRoute.List> {
+            RoutinesList(
+                onBack = { nav.popBackStack() },
+                goBuilder = { nav.navigate(RoutinesRoute.Builder()) },
+                onOpen = { detail -> nav.navigate(RoutinesRoute.Builder(detail.routine.id)) }
+            )
+        }
+
+        // Builder: crear/editar
+        composable<RoutinesRoute.Builder> { backStackEntry ->
+            val args = backStackEntry.toRoute<RoutinesRoute.Builder>()
+            val ctx = LocalContext.current
+            val repo = remember(ctx) { RoutinesServiceLocator.repository(ctx) }
+            var initial by remember { mutableStateOf<RoutineDetail?>(null) }
+
+            LaunchedEffect(args.routineId) {
+                initial = args.routineId?.let { repo.getRoutine(it) }
             }
-        )
-        Mode.List -> RoutinesList(
-            onBack = { mode = Mode.Home },
-            goBuilder = {
-                selected = null
-                mode = Mode.Builder
-            },
-            onOpen = { detail ->
-                selected = detail
-                mode = Mode.Builder
-            }
-        )
-        Mode.Builder -> RoutineBuilderScreen(
-            onBack = { mode = Mode.Home },
-            initial = selected          // precarga al editar
-        )
+
+            RoutineBuilderScreen(
+                onBack = { nav.popBackStack() },
+                initial = initial
+            )
+        }
     }
 }
-
-private enum class Mode { Home, List, Builder }
 
 @Composable
 private fun RoutinesHome(
@@ -87,12 +88,8 @@ private fun RoutinesHome(
 
             Text("¿Qué deseas hacer?", style = MaterialTheme.typography.titleMedium)
 
-            Button(onClick = goList, modifier = Modifier.fillMaxWidth()) {
-                Text("Mis rutinas")
-            }
-            OutlinedButton(onClick = goBuilder, modifier = Modifier.fillMaxWidth()) {
-                Text("Crear nueva")
-            }
+            Button(onClick = goList, modifier = Modifier.fillMaxWidth()) { Text("Mis rutinas") }
+            OutlinedButton(onClick = goBuilder, modifier = Modifier.fillMaxWidth()) { Text("Crear nueva") }
         }
     }
 }
@@ -112,7 +109,6 @@ private fun RoutinesList(
         repo.observeRoutines().collectLatest { routines = it }
     }
 
-    // estado para confirmar borrado desde la lista
     var confirmDelete by remember { mutableStateOf(false) }
     var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
     var pendingDeleteName by remember { mutableStateOf("") }
@@ -157,18 +153,9 @@ private fun RoutinesList(
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                r.routine.name.ifBlank { "Rutina" },
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                "Ejercicios: $totalExercises · Sets totales: $totalSets",
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End
-                            ) {
+                            Text(r.routine.name.ifBlank { "Rutina" }, style = MaterialTheme.typography.titleMedium)
+                            Text("Ejercicios: $totalExercises · Sets totales: $totalSets", style = MaterialTheme.typography.bodySmall)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                                 OutlinedButton(onClick = { onOpen(r) }) { Text("Editar / Abrir") }
                                 Spacer(Modifier.width(8.dp))
                                 OutlinedButton(onClick = {
@@ -203,14 +190,10 @@ private fun RoutinesList(
                 Button(onClick = {
                     val id = pendingDeleteId!!
                     confirmDelete = false
-                    scope.launch {
-                        repo.deleteRoutine(id)
-                    }
+                    scope.launch { repo.deleteRoutine(id) }
                 }) { Text("Borrar") }
             },
-            dismissButton = {
-                OutlinedButton(onClick = { confirmDelete = false }) { Text("Cancelar") }
-            },
+            dismissButton = { OutlinedButton(onClick = { confirmDelete = false }) { Text("Cancelar") } },
             title = { Text("Borrar rutina") },
             text = { Text("¿Seguro que deseas borrar “$pendingDeleteName”? Esta acción no se puede deshacer.") }
         )

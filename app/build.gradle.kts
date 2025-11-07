@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -21,17 +22,18 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
-    // Java/Kotlin 17 (requerido por AGP 8.x)
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    // (opcional) fuerza toolchain 17
     kotlin { jvmToolchain(17) }
 
     buildFeatures { compose = true }
@@ -50,9 +52,11 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.ui.text)
 
-
-    // Navigation Compose
+    // Navigation Compose (2.8+ para typed routes con serialization)
     implementation(libs.androidx.navigation.compose)
+
+    // Kotlin Serialization (para rutas tipadas)
+    implementation(libs.kotlinx.serialization.json)
 
     // DataStore
     implementation(libs.androidx.datastore.preferences)
@@ -84,7 +88,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 }
 
-// Aplica google-services solo si existe el JSON (para que el demo compile sin Firebase)
+// Aplica google-services solo si existe el JSON
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
