@@ -1,10 +1,8 @@
 package com.befitnessapp.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.toRoute
+import androidx.navigation.compose.*
+import androidx.navigation.*
 import com.befitnessapp.ui.screens.addlog.AddWorkoutScreen
 import com.befitnessapp.ui.screens.auth.LoginScreen
 import com.befitnessapp.ui.screens.auth.RegisterScreen
@@ -27,94 +25,79 @@ fun AppNavHost() {
 
     NavHost(
         navController = nav,
-        startDestination = AppRoute.Onboarding
+        startDestination = Onboarding
     ) {
-        // Onboarding / Auth
-
-        composable<AppRoute.Onboarding> {
+        composable<Onboarding> {
             OnboardingScreen(
                 onTryDemo = {
-                    nav.navigate(AppRoute.Home) {
-                        popUpTo(AppRoute.Onboarding) { inclusive = true }
+                    nav.navigate(Home) {
+                        popUpTo(Onboarding) { inclusive = true }
                     }
                 },
-                onLogin = { nav.navigate(AppRoute.Login) },
-                onRegister = { nav.navigate(AppRoute.Register) }
+                onLogin = { nav.navigate(Login) },
+                onRegister = { nav.navigate(Register) }
             )
         }
 
-        composable<AppRoute.Login> {
+        composable<Login> {
             LoginScreen(
                 onLoggedIn = {
-                    nav.navigate(AppRoute.Home) {
-                        popUpTo(AppRoute.Onboarding) { inclusive = true }
+                    nav.navigate(Home) {
+                        popUpTo(Onboarding) { inclusive = true }
                     }
                 },
                 onBack = { nav.popBackStack() }
             )
         }
 
-        composable<AppRoute.Register> {
+        composable<Register> {
             RegisterScreen(
                 onRegistered = {
-                    nav.navigate(AppRoute.Home) {
-                        popUpTo(AppRoute.Onboarding) { inclusive = true }
+                    nav.navigate(Home) {
+                        popUpTo(Onboarding) { inclusive = true }
                     }
                 },
                 onBack = { nav.popBackStack() }
             )
         }
 
-        // Home / Secciones
-        composable<AppRoute.Home> {
+        composable<Home> {
             HomeScreen(
-                goDashboard = { nav.navigate(AppRoute.Dashboard) },
-                goLibrary = { nav.navigate(AppRoute.Library) },
-                goMuscleMap = { nav.navigate(AppRoute.MuscleMap) },
-                goLog = { nav.navigate(AppRoute.WorkoutLog) },
-                goAddLog = { nav.navigate(AppRoute.AddLog()) },
-                goRecommendations = { nav.navigate(AppRoute.Recommendations) },
-                goRoutines = { nav.navigate(AppRoute.Routines) },
-                goCalendar = { nav.navigate(AppRoute.Calendar) },
-                goProfile = { nav.navigate(AppRoute.Profile) },
-                goSettings = { nav.navigate(AppRoute.Settings) }
+                goDashboard = { nav.navigate(Dashboard) },
+                goLibrary = { nav.navigate(Library) },
+                goMuscleMap = { nav.navigate(MuscleMap) },
+                goLog = { nav.navigate(WorkoutLog) },
+                goAddLog = { nav.navigate(AddLog()) },
+                goRecommendations = { nav.navigate(Recommendations) },
+                goRoutines = { nav.navigate(Routines) },
+                goCalendar = { nav.navigate(Calendar) },
+                goProfile = { nav.navigate(Profile) },
+                goSettings = { nav.navigate(Settings) }
             )
         }
 
-        composable<AppRoute.Dashboard> { DashboardScreen(onBack = { nav.popBackStack() }) }
-        composable<AppRoute.Library> { LibraryScreen(onBack = { nav.popBackStack() }) }
-        composable<AppRoute.MuscleMap> { MuscleMapScreen(onBack = { nav.popBackStack() }) }
-        composable<AppRoute.WorkoutLog> { WorkoutLogScreen(onBack = { nav.popBackStack() }) }
-        composable<AppRoute.Recommendations> { RecommendationsScreen(onBack = { nav.popBackStack() }) }
-        composable<AppRoute.Profile> { ProfileScreen(onBack = { nav.popBackStack() }) }
-        composable<AppRoute.Settings> { SettingsScreen(onBack = { nav.popBackStack() }) }
+        composable<Dashboard> { DashboardScreen(onBack = { nav.popBackStack() }) }
+        composable<Library> { LibraryScreen(onBack = { nav.popBackStack() }) }
+        composable<MuscleMap> { MuscleMapScreen(onBack = { nav.popBackStack() }) }
+        composable<WorkoutLog> { WorkoutLogScreen(onBack = { nav.popBackStack() }) }
+        composable<Recommendations> { RecommendationsScreen(onBack = { nav.popBackStack() }) }
+        composable<Routines> { RoutinesScreen(onBack = { nav.popBackStack() }) }
 
-        //Rutinas
-
-        composable<AppRoute.Routines> {
-            RoutinesScreen(onBack = { nav.popBackStack() })
-        }
-
-        // Calendario  AddLog
-
-        composable<AppRoute.Calendar> {
+        composable<Calendar> {
             CalendarScreen(
                 onBack = { nav.popBackStack() },
                 onAddWorkoutForDate = { date: LocalDate ->
-                    // Pasamos la fecha en ISO-8601 como String en la ruta tipada
-                    nav.navigate(AppRoute.AddLog(date = date.toString()))
+                    nav.navigate(AddLog(date = date.toString()))
                 }
             )
         }
 
-        // date
+        composable<Profile> { ProfileScreen(onBack = { nav.popBackStack() }) }
+        composable<Settings> { SettingsScreen(onBack = { nav.popBackStack() }) }
 
-        composable<AppRoute.AddLog> { backStackEntry ->
-            val args = backStackEntry.toRoute<AppRoute.AddLog>()
-            val initialDate: LocalDate? = args.date?.let {
-                runCatching { LocalDate.parse(it) }.getOrNull()
-            }
-
+        composable<AddLog> { entry ->
+            val args = entry.toRoute<AddLog>()
+            val initialDate = args.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
             AddWorkoutScreen(
                 onBack = { nav.popBackStack() },
                 initialDate = initialDate

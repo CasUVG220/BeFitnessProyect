@@ -39,6 +39,15 @@ android {
     buildFeatures { compose = true }
 }
 
+configurations.all {
+    resolutionStrategy {
+        force(
+            "androidx.navigation:navigation-compose:2.8.4",
+            "androidx.navigation:navigation-runtime-ktx:2.8.4"
+        )
+    }
+}
+
 dependencies {
     // Compose
     implementation(platform(libs.androidx.compose.bom))
@@ -52,10 +61,11 @@ dependencies {
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.ui.text)
 
-    // Navigation Compose (2.8+ para typed routes con serialization)
+    // Navigation tipado 2.8.4
     implementation(libs.androidx.navigation.compose)
+    implementation("androidx.navigation:navigation-runtime-ktx:2.8.4") // <- fijo, sin catálogo
 
-    // Kotlin Serialization (para rutas tipadas)
+    // Kotlin Serialization
     implementation(libs.kotlinx.serialization.json)
 
     // DataStore
@@ -72,7 +82,7 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
-    // Firebase + Google Sign-In
+    // Firebase + Google Sign-In (BoM)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)

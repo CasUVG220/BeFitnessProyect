@@ -1,108 +1,140 @@
 package com.befitnessapp.ui.screens.library
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.befitnessapp.domain.catalog.Catalogo
 import com.befitnessapp.domain.catalog.Exercise
-import com.befitnessapp.domain.catalog.MuscleGroup
 
 @Composable
 fun LibraryScreen(onBack: () -> Unit) {
-    var query by remember { mutableStateOf("") }
-    var selectedGroup: MuscleGroup? by remember { mutableStateOf(null) }
+    var query by rememberSaveable { mutableStateOf("") }
+    var selectedGroupId by rememberSaveable { mutableStateOf<Int?>(null) }
 
-    val results by remember(query, selectedGroup) {
+    val results by remember(query, selectedGroupId) {
         mutableStateOf(
             Catalogo.searchExercises(
                 query = query,
-                groupId = selectedGroup?.id
+                groupId = selectedGroupId
             )
         )
     }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Biblioteca de ejercicios", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(12.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Biblioteca de ejercicios", style = MaterialTheme.typography.headlineSmall)
+            Spacer(modifier = Modifier.weight(1f))
+            OutlinedButton(onClick = onBack) { Text("Volver") }
+        }
 
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Buscar ejercicio") }
+            label = { Text("Buscar") },
+            modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(Modifier.height(8.dp))
-
-        FlowRow(
+        LazyRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(horizontal = 4.dp)
         ) {
-            AssistChip(
-                onClick = { selectedGroup = null },
-                label = { Text("Todos") }
-            )
-            Catalogo.allGroups.forEach { grp ->
-                val selected = selectedGroup?.id == grp.id
-                AssistChip(
-                    onClick = { selectedGroup = if (selected) null else grp },
-                    label = { Text(grp.name) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        containerColor = if (selected)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                        else
-                            MaterialTheme.colorScheme.surface
-                    )
+            item {
+                FilterChip(
+                    text = "Todos",
+                    selected = selectedGroupId == null,
+                    onClick = { selectedGroupId = null }
+                )
+            }
+            items(Catalogo.allGroups) { grp ->
+                FilterChip(
+                    text = grp.name,
+                    selected = selectedGroupId == grp.id,
+                    onClick = {
+                        selectedGroupId = if (selectedGroupId == grp.id) null else grp.id
+                    }
                 )
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(results) { ex ->
-                ExerciseCard(ex)
+        if (results.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("No se encontraron ejercicios.")
             }
-            if (results.isEmpty()) {
-                item {
-                    Text(
-                        text = "No se encontraron ejercicios.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(8.dp)
-                    )
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(results) { ex ->
+                    ExerciseCard(ex)
                 }
             }
         }
+    }
+}
 
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Volver") }
+@Composable
+private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Surface(
+        tonalElevation = if (selected) 2.dp else 0.dp,
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier
+            .heightIn(min = 36.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
 @Composable
 private fun ExerciseCard(ex: Exercise) {
-    val primaryTargets = remember(ex) {
-        ex.targets.filter { it.role.name == "PRIMARY" }
-            .mapNotNull { t -> Catalogo.muscleById[t.muscleId]?.name }
-            .joinToString(" · ")
-    }
-    Card {
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Text(ex.name, style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(4.dp))
             Text("Patrón: ${ex.pattern}", style = MaterialTheme.typography.bodySmall)
-            if (primaryTargets.isNotBlank()) {
-                Text("Primario: $primaryTargets", style = MaterialTheme.typography.bodySmall)
-            }
         }
     }
 }
