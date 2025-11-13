@@ -34,6 +34,8 @@ class AddWorkoutViewModel(
         _entries.value = _entries.value.filterNot { it.exerciseId == exerciseId }
     }
 
+
+
     fun addSet(exerciseId: Int, reps: Int = 8, weight: Float = 20f) {
         _entries.value = _entries.value.map {
             if (it.exerciseId == exerciseId) {
@@ -58,6 +60,7 @@ class AddWorkoutViewModel(
         }
     }
 
+    /** Reemplaza todos los sets de un ejercicio (se usa cuando editas desde el sheet). */
     fun replaceSets(exerciseId: Int, newSets: List<Pair<Int, Float>>) {
         _entries.value = _entries.value.map { e ->
             if (e.exerciseId == exerciseId) e.copy(sets = newSets.toMutableList()) else e
@@ -68,15 +71,37 @@ class AddWorkoutViewModel(
         _entries.value = emptyList()
     }
 
-    fun save(notes: String?, onDone: () -> Unit, onError: (Throwable) -> Unit) {
+    /**
+     * Guarda el workout en base y devuelve los PRs detectados en este batch.
+     * - notes: la nota opcional (aquí podemos mandar el nombre de la rutina aplicada).
+     * - onDone: recibe un mapa exerciseId -> nuevo peso máximo.
+     */
+    fun save(
+        notes: String?,
+        onDone: (prs: Map<Int, Float>) -> Unit,
+        onError: (Throwable) -> Unit
+    ) {
         viewModelScope.launch {
             try {
                 val map = _entries.value
                     .filter { it.sets.isNotEmpty() }
                     .associate { it.exerciseId to it.sets.toList() }
+
+                if (map.isEmpty()) {
+                    onDone(emptyMap())
+                    return@launch
+                }
+
+                // 1) Detectamos PRs comparando contra el historial actual
+                val prs = repo.detectPRsForBatch(map)
+
+                // 2) Guardamos el workout con todos los sets
                 repo.createWorkout(_date.value, notes, map)
+
+                // 3) Limpiamos el draft en memoria
                 _entries.value = emptyList()
-                onDone()
+
+                onDone(prs)
             } catch (t: Throwable) {
                 onError(t)
             }

@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.befitnessapp.Graph
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -28,9 +29,11 @@ fun HomeScreen(
     goProfile: () -> Unit,
     goSettings: () -> Unit
 ) {
-    val vm: HomeViewModel = viewModel(factory = HomeViewModel.factory(Graph.workoutRepository))
+    val vm: HomeViewModel =
+        viewModel(factory = HomeViewModel.factory(Graph.workoutRepository))
     val ui by vm.uiState.collectAsState()
-    val fmt = remember { DateTimeFormatter.ofPattern("EEE d MMM") }
+
+    val fmtDay = remember { DateTimeFormatter.ofPattern("EEE d MMM") }
 
     Surface(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -43,20 +46,54 @@ fun HomeScreen(
 
             item {
                 Column(Modifier.fillMaxWidth()) {
-                    Text("Tu semana de entrenamiento", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Hoy • ${fmt.format(ui.today)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "Tu semana de entrenamiento",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Hoy • ${fmtDay.format(ui.today)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatCard("Volumen (sem)", pretty(ui.weekVolume), container = { primaryContainer }, modifier = Modifier.weight(1f))
-                        StatCard("PRs (sem)", "${ui.weekPRs}", container = { tertiaryContainer }, modifier = Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StatCard(
+                            "Volumen (sem)",
+                            pretty(ui.weeklyVolume),
+                            { primaryContainer },
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            "PRs (sem)",
+                            ui.weeklyPrs.toString(),
+                            { tertiaryContainer },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatCard("Reps (sem)", "${ui.weekReps}", container = { secondaryContainer }, modifier = Modifier.weight(1f))
-                        StatCard("Sets (sem)", "${ui.weekSets}", container = { surfaceVariant }, modifier = Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StatCard(
+                            "Reps (sem)",
+                            ui.weeklyReps.toString(),
+                            { secondaryContainer },
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            "Sets (sem)",
+                            ui.weeklySets.toString(),
+                            { surfaceVariant },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -65,17 +102,56 @@ fun HomeScreen(
                 Text("Acciones rápidas", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionTile("Añadir entrenamiento", "Crear un log rápido", onClick = goAddLog, modifier = Modifier.weight(1f))
-                        ActionTile("Calendario", "Ver días entrenados", onClick = goCalendar, modifier = Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ActionTile(
+                            "Añadir entrenamiento",
+                            "Crear un log rápido",
+                            onClick = goAddLog,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ActionTile(
+                            "Calendario",
+                            "Ver días entrenados",
+                            onClick = goCalendar,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionTile("Biblioteca", "Buscar ejercicios", onClick = goLibrary, modifier = Modifier.weight(1f))
-                        ActionTile("Rutinas", "Tus rutinas guardadas", onClick = goRoutines, modifier = Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ActionTile(
+                            "Biblioteca",
+                            "Buscar ejercicios",
+                            onClick = goLibrary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ActionTile(
+                            "Rutinas",
+                            "Tus rutinas guardadas",
+                            onClick = goRoutines,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionTile("Mapa muscular", "Vista por grupos", onClick = goMuscleMap, modifier = Modifier.weight(1f))
-                        ActionTile("Recomendaciones", "Ideas para hoy", onClick = goRecommendations, modifier = Modifier.weight(1f))
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ActionTile(
+                            "Mapa muscular",
+                            "Vista por grupos",
+                            onClick = goMuscleMap,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ActionTile(
+                            "Recomendaciones",
+                            "Ideas para hoy",
+                            onClick = goRecommendations,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -83,22 +159,31 @@ fun HomeScreen(
             item {
                 ElevatedCard {
                     Column(
-                        Modifier.fillMaxWidth().padding(12.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("Último entrenamiento", style = MaterialTheme.typography.titleMedium)
-                        val last = ui.recent.firstOrNull()
+                        Text(
+                            "Último entrenamiento",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+
+                        val last = ui.lastWorkout
                         if (last == null) {
                             Text("Aún no registras entrenamientos.")
                         } else {
-                            Text(last.title, fontWeight = FontWeight.SemiBold) // ← usa título dinámico
+                            Text(last.title, fontWeight = FontWeight.SemiBold)
                             Text(
-                                "${fmt.format(last.date)} • Volumen: ${pretty(last.volume)} · Sets: ${last.sets} · Reps: ${last.reps}",
+                                "${fmtDay.format(last.date)} • Volumen: ${pretty(last.volume)} · Sets: ${last.sets} · Reps: ${last.reps}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.height(4.dp))
-                            OutlinedButton(onClick = goLog, modifier = Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = goLog,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Text("Ver historial")
                             }
                         }
@@ -107,10 +192,16 @@ fun HomeScreen(
             }
 
             item {
-                Text("Mapa muscular (preview)", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Mapa muscular (preview)",
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Spacer(Modifier.height(8.dp))
                 MuscleGridPreview(
-                    groups = listOf("Pecho","Espalda","Hombros","Bíceps","Tríceps","Antebrazo","Cuádriceps","Isquios","Glúteo","Pantorrilla","Core","Trapecio"),
+                    groups = listOf(
+                        "Pecho", "Espalda", "Hombros", "Bíceps", "Tríceps", "Antebrazo",
+                        "Cuádriceps", "Isquios", "Glúteo", "Pantorrilla", "Core", "Trapecio"
+                    ),
                     onClick = { goMuscleMap() }
                 )
             }
@@ -126,16 +217,21 @@ fun HomeScreen(
                 }
             }
 
-            items(ui.recent) { w ->
+            items(ui.recentWorkouts.take(3)) { w ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { goCalendar() }
                 ) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(w.title, fontWeight = FontWeight.SemiBold) // ← usa título dinámico
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(w.title, fontWeight = FontWeight.SemiBold)
                         Text(
-                            "${fmt.format(w.date)} • Volumen: ${pretty(w.volume)} · Sets: ${w.sets} · Reps: ${w.reps}",
+                            "${fmtDay.format(w.date)} • Volumen: ${pretty(w.volume)} · Sets: ${w.sets} · Reps: ${w.reps}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -177,41 +273,81 @@ private fun ActionTile(
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(
-        modifier = modifier.heightIn(min = 100.dp).clickable(onClick = onClick)
+        modifier = modifier
+            .heightIn(min = 100.dp)
+            .clickable(onClick = onClick)
     ) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
             Spacer(Modifier.height(4.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
-private fun MuscleGridPreview(groups: List<String>, onClick: () -> Unit) {
+private fun MuscleGridPreview(
+    groups: List<String>,
+    onClick: () -> Unit
+) {
     Column(
-        Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.large)
+        Modifier
+            .fillMaxWidth()
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.large
+            )
             .padding(12.dp)
             .clickable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         val rows = groups.chunked(3)
         rows.forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 row.forEach { name ->
                     Surface(
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                         tonalElevation = 1.dp,
                         shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.weight(1f)
-                    ) { Box(Modifier.height(36.dp), contentAlignment = Alignment.Center) { Text(name, style = MaterialTheme.typography.labelMedium) } }
+                    ) {
+                        Box(
+                            Modifier.height(36.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(name, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
-                if (row.size < 3) repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                if (row.size < 3) {
+                    repeat(3 - row.size) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text("Toca para ver el mapa completo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            "Toca para ver el mapa completo",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

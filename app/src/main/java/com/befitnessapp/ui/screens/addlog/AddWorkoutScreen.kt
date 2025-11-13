@@ -82,16 +82,16 @@ fun AddWorkoutScreen(
 
     val entries by vm.entries.collectAsState()
 
-    // nombre de rutina cargada para el home por si (si se usó "Cargar rutina")
-    var loadedRoutineName by remember { mutableStateOf<String?>(null) }
-
-    // ===== Rutinas
+    // ===== Rutinas =====
     val routinesContext = LocalContext.current
     val routinesRepo = remember(routinesContext) { RoutinesServiceLocator.repository(routinesContext) }
     val routinesState = remember(routinesRepo) { routinesRepo.observeRoutines() }
         .collectAsState(initial = emptyList())
     val routines = routinesState.value
     var showRoutinePicker by remember { mutableStateOf(false) }
+
+    // Nombre de rutina aplicada (para notas y para Home/Historial)
+    var loadedRoutineName by remember { mutableStateOf<String?>(null) }
 
     Box(Modifier.fillMaxSize()) {
         Column(
@@ -178,13 +178,18 @@ fun AddWorkoutScreen(
                             sets = sets
                         )
                     }
-                    val computed = computeSummary(snapshot)
-                    summaryData = computed
+
+                    if (snapshot.isEmpty()) return@Button
 
                     vm.save(
                         notes = loadedRoutineName,
-                        onDone = { /* abre sheet */ },
-                        onError = { /* TODO snack */ }
+                        onDone = { prs ->
+                            val computed = computeSummary(snapshot, prs)
+                            summaryData = computed
+                        },
+                        onError = {
+                            // En el futuro: mostrar snackbar/toast. Por ahora lo ignoramos en UI.
+                        }
                     )
                 },
                 enabled = entries.any { it.sets.isNotEmpty() },
@@ -192,7 +197,7 @@ fun AddWorkoutScreen(
             ) { Text("Loggear Workout") }
         }
 
-        // SHEET: Editor por ejercicio
+        // ====== SHEET: Editor por ejercicio ======
         if (sheetExercise != null) {
             ModalBottomSheet(
                 onDismissRequest = { sheetExercise = null },
@@ -244,9 +249,7 @@ fun AddWorkoutScreen(
                             TextButton(
                                 onClick = {
                                     if (sheetSets.size > 1) {
-                                        sheetSets = sheetSets.toMutableList().also {
-                                            it.removeAt(idx)
-                                        }
+                                        sheetSets = sheetSets.toMutableList().also { it.removeAt(idx) }
                                     }
                                 },
                                 enabled = sheetSets.size > 1
@@ -288,7 +291,7 @@ fun AddWorkoutScreen(
             }
         }
 
-        // SHEET: Selección actual
+        // ====== SHEET: Selección actual ======
         if (showSelection) {
             ModalBottomSheet(
                 onDismissRequest = { showSelection = false },
@@ -376,15 +379,15 @@ fun AddWorkoutScreen(
             }
         }
 
-        //  DIALOG: Picker de Rutina
+        // ====== DIALOG: Picker de Rutina ======
         if (showRoutinePicker) {
             RoutinePickerDialog(
                 routines = routines,
                 onPick = { detail ->
                     showRoutinePicker = false
 
-                    // guardamos el nombre REAL de la rutina aplicada
-                    loadedRoutineName = detail.routine.name
+                    // Guardamos el nombre de la rutina aplicada
+                    loadedRoutineName = detail.routine.name.ifBlank { "Entrenamiento" }
 
                     detail.exercises.forEach { ex ->
                         val exId = ex.exerciseId
@@ -403,7 +406,7 @@ fun AddWorkoutScreen(
             )
         }
 
-        // SHEET: Resumen final
+        // ====== SHEET: Resumen final ======
         summaryData?.let { summary ->
             ModalBottomSheet(
                 onDismissRequest = { /* sin dismiss externo */ },
@@ -414,6 +417,7 @@ fun AddWorkoutScreen(
                     summary = summary,
                     onClose = {
                         summaryData = null
+                        loadedRoutineName = null
                         onBack()
                     }
                 )
@@ -422,6 +426,7 @@ fun AddWorkoutScreen(
     }
 }
 
+/* ======= Modelos, summary y helpers ======= */
 
 private data class SetSnapshot(val reps: Int, val weight: Float)
 private data class ExerciseSnapshot(
@@ -434,7 +439,8 @@ private data class WorkoutSummary(
     val totalReps: Int,
     val totalSets: Int,
     val totalExercises: Int,
-    val topExercisesByVolume: List<ExerciseVolume>
+    val topExercisesByVolume: List<ExerciseVolume>,
+    val prs: List<ExercisePR>
 )
 private data class ExerciseVolume(
     val exerciseName: String,
@@ -443,8 +449,15 @@ private data class ExerciseVolume(
     val sets: Int,
     val topWeight: Float
 )
+private data class ExercisePR(
+    val exerciseName: String,
+    val newMax: Float
+)
 
-private fun computeSummary(snap: List<ExerciseSnapshot>): WorkoutSummary {
+private fun computeSummary(
+    snap: List<ExerciseSnapshot>,
+    prs: Map<Int, Float>
+): WorkoutSummary {
     var volume = 0f
     var repsTotal = 0
     var setsTotal = 0
@@ -473,12 +486,20 @@ private fun computeSummary(snap: List<ExerciseSnapshot>): WorkoutSummary {
     }.sortedByDescending { it.volume }
         .take(3)
 
+    val prList = prs.mapNotNull { (exerciseId, newMax) ->
+        val nameFromSnap = snap.firstOrNull { it.exerciseId == exerciseId }?.exerciseName
+        val name = nameFromSnap
+            ?: Catalogo.allExercises.firstOrNull { it.id == exerciseId }?.name
+        name?.let { ExercisePR(exerciseName = it, newMax = newMax) }
+    }.sortedByDescending { it.newMax }
+
     return WorkoutSummary(
         totalVolume = volume,
         totalReps = repsTotal,
         totalSets = setsTotal,
         totalExercises = snap.size,
-        topExercisesByVolume = byEx
+        topExercisesByVolume = byEx,
+        prs = prList
     )
 }
 
@@ -582,12 +603,12 @@ private fun WorkoutSummaryContent(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Volumen total", formatFloat(summary.totalVolume)) { primaryContainer }
-                StatCard("Reps totales", "${summary.totalReps}") { secondaryContainer }
+                StatCard("Volumen total", formatFloat(summary.totalVolume), { primaryContainer })
+                StatCard("Reps totales", "${summary.totalReps}", { secondaryContainer })
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Ejercicios", "${summary.totalExercises}") { tertiaryContainer }
-                StatCard("Sets", "${summary.totalSets}") { surfaceVariant }
+                StatCard("Ejercicios", "${summary.totalExercises}", { tertiaryContainer })
+                StatCard("Sets", "${summary.totalSets}", { surfaceVariant })
             }
         }
 
@@ -609,6 +630,16 @@ private fun WorkoutSummaryContent(
                         )
                     }
                 }
+            }
+        }
+
+        if (summary.prs.isNotEmpty()) {
+            Text("Nuevos PRs", style = MaterialTheme.typography.titleMedium)
+            summary.prs.forEach { pr ->
+                Text(
+                    "• ${pr.exerciseName}: ${formatFloat(pr.newMax)} kg",
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
 

@@ -123,4 +123,27 @@ interface WorkoutDao {
         """
     )
     fun observeDaysWithLogsBetween(from: LocalDate, to: LocalDate): Flow<List<LocalDate>>
+    // 🔥 PRs: cuántos ejercicios tienen su peso MÁXIMO global
+    // en un workout dentro del rango [from, to]
+    @Query(
+        """
+        SELECT COUNT(DISTINCT ws.exerciseId) AS value
+        FROM workout_set ws
+        JOIN workout w ON w.id = ws.workoutId
+        JOIN (
+            SELECT exerciseId, MAX(weight) AS maxWeight
+            FROM workout_set
+            WHERE deleted = 0
+            GROUP BY exerciseId
+        ) best
+          ON best.exerciseId = ws.exerciseId
+         AND ws.weight = best.maxWeight
+        WHERE ws.deleted = 0
+          AND w.deleted  = 0
+          AND w.date BETWEEN :from AND :to
+        """
+    )
+    fun observePrsBetween(from: LocalDate, to: LocalDate): Flow<Int>
+
 }
+

@@ -108,6 +108,9 @@ class WorkoutRepository(private val dao: WorkoutDao) {
     fun observeAggBetween(from: LocalDate, to: LocalDate): Flow<List<ExerciseAgg>> =
         dao.observeAggBetween(from, to)
 
+    fun observePrsBetween(from: LocalDate, to: LocalDate): Flow<Int> =
+        dao.observePrsBetween(from, to)
+
     fun observeDaysWithLogsBetween(from: LocalDate, to: LocalDate): Flow<List<LocalDate>> =
         dao.observeDaysWithLogsBetween(from, to)
 
