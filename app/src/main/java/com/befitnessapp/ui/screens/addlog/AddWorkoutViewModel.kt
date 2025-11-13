@@ -58,21 +58,12 @@ class AddWorkoutViewModel(
         }
     }
 
-    /**
-     * ✅ NUEVO: Reemplaza TODOS los sets de un ejercicio ya presente en la sesión actual.
-     * Útil cuando el usuario edita una rutina cargada o re-edita un ejercicio desde el sheet.
-     * No afecta rutinas guardadas; solo el draft del workout actual.
-     */
     fun replaceSets(exerciseId: Int, newSets: List<Pair<Int, Float>>) {
         _entries.value = _entries.value.map { e ->
             if (e.exerciseId == exerciseId) e.copy(sets = newSets.toMutableList()) else e
         }
     }
 
-    /**
-     * (Opcional) Limpia toda la selección actual del workout.
-     * Útil si en algún flujo quieres "reemplazar todo" por una rutina.
-     */
     fun clearAll() {
         _entries.value = emptyList()
     }

@@ -82,7 +82,10 @@ fun AddWorkoutScreen(
 
     val entries by vm.entries.collectAsState()
 
-    // ===== Rutinas (estables, sin inferencias raras)
+    // nombre de rutina cargada para el home por si (si se usó "Cargar rutina")
+    var loadedRoutineName by remember { mutableStateOf<String?>(null) }
+
+    // ===== Rutinas
     val routinesContext = LocalContext.current
     val routinesRepo = remember(routinesContext) { RoutinesServiceLocator.repository(routinesContext) }
     val routinesState = remember(routinesRepo) { routinesRepo.observeRoutines() }
@@ -164,8 +167,11 @@ fun AddWorkoutScreen(
             Button(
                 onClick = {
                     val snapshot = entries.mapNotNull { e ->
-                        val ex = Catalogo.allExercises.firstOrNull { it.id == e.exerciseId } ?: return@mapNotNull null
-                        val sets = e.sets.map { (reps, weight) -> SetSnapshot(reps = reps, weight = weight) }
+                        val ex = Catalogo.allExercises.firstOrNull { it.id == e.exerciseId }
+                            ?: return@mapNotNull null
+                        val sets = e.sets.map { (reps, weight) ->
+                            SetSnapshot(reps = reps, weight = weight)
+                        }
                         ExerciseSnapshot(
                             exerciseId = e.exerciseId,
                             exerciseName = ex.name,
@@ -176,7 +182,7 @@ fun AddWorkoutScreen(
                     summaryData = computed
 
                     vm.save(
-                        notes = null,
+                        notes = loadedRoutineName,
                         onDone = { /* abre sheet */ },
                         onError = { /* TODO snack */ }
                     )
@@ -186,7 +192,7 @@ fun AddWorkoutScreen(
             ) { Text("Loggear Workout") }
         }
 
-        // ====== SHEET: Editor por ejercicio ======
+        // SHEET: Editor por ejercicio
         if (sheetExercise != null) {
             ModalBottomSheet(
                 onDismissRequest = { sheetExercise = null },
@@ -224,7 +230,9 @@ fun AddWorkoutScreen(
                                         new.forEach { c ->
                                             when {
                                                 c.isDigit() -> append(c)
-                                                c == '.' && !dot -> { append(c); dot = true }
+                                                c == '.' && !dot -> {
+                                                    append(c); dot = true
+                                                }
                                             }
                                         }
                                     }.take(6)
@@ -234,7 +242,13 @@ fun AddWorkoutScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(
-                                onClick = { if (sheetSets.size > 1) sheetSets = sheetSets.toMutableList().also { it.removeAt(idx) } },
+                                onClick = {
+                                    if (sheetSets.size > 1) {
+                                        sheetSets = sheetSets.toMutableList().also {
+                                            it.removeAt(idx)
+                                        }
+                                    }
+                                },
                                 enabled = sheetSets.size > 1
                             ) { Text("Eliminar") }
                         }
@@ -274,7 +288,7 @@ fun AddWorkoutScreen(
             }
         }
 
-        // ====== SHEET: Selección actual ======
+        // SHEET: Selección actual
         if (showSelection) {
             ModalBottomSheet(
                 onDismissRequest = { showSelection = false },
@@ -324,7 +338,9 @@ fun AddWorkoutScreen(
                                                 TextButton(
                                                     onClick = {
                                                         sheetExercise = ex
-                                                        sheetSets = e.sets.map { (r, w) -> r.toString() to formatFloat(w) }
+                                                        sheetSets = e.sets.map { (r, w) ->
+                                                            r.toString() to formatFloat(w)
+                                                        }
                                                         showSelection = false
                                                     }
                                                 ) { Text("Editar sets") }
@@ -360,12 +376,16 @@ fun AddWorkoutScreen(
             }
         }
 
-        // ====== DIALOG: Picker de Rutina ======
+        //  DIALOG: Picker de Rutina
         if (showRoutinePicker) {
             RoutinePickerDialog(
                 routines = routines,
                 onPick = { detail ->
                     showRoutinePicker = false
+
+                    // guardamos el nombre REAL de la rutina aplicada
+                    loadedRoutineName = detail.routine.name
+
                     detail.exercises.forEach { ex ->
                         val exId = ex.exerciseId
                         if (entries.none { it.exerciseId == exId }) {
@@ -383,7 +403,7 @@ fun AddWorkoutScreen(
             )
         }
 
-        // ====== SHEET: Resumen final ======
+        // SHEET: Resumen final
         summaryData?.let { summary ->
             ModalBottomSheet(
                 onDismissRequest = { /* sin dismiss externo */ },
@@ -402,7 +422,6 @@ fun AddWorkoutScreen(
     }
 }
 
-/* ======= Modelos, summary y helpers ======= */
 
 private data class SetSnapshot(val reps: Int, val weight: Float)
 private data class ExerciseSnapshot(
@@ -469,7 +488,12 @@ private fun ExerciseRow(
     onAdd: () -> Unit
 ) {
     Card {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
             Text("Patrón: ${exercise.pattern}", style = MaterialTheme.typography.bodySmall)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -501,7 +525,12 @@ private fun MuscleInfoCard(exercise: Exercise) {
     }
 
     Surface(shape = MaterialTheme.shapes.medium, tonalElevation = 2.dp) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Box(Modifier.fillMaxWidth().height(160.dp)) {
                 Text(
                     "Vista muscular (placeholder)",
@@ -509,14 +538,22 @@ private fun MuscleInfoCard(exercise: Exercise) {
                     modifier = Modifier.padding(8.dp)
                 )
             }
-            if (primarios.isNotBlank()) Text("Primario: $primarios", style = MaterialTheme.typography.bodySmall)
-            if (secundarios.isNotBlank()) Text("Secundario: $secundarios", style = MaterialTheme.typography.bodySmall)
+            if (primarios.isNotBlank()) {
+                Text("Primario: $primarios", style = MaterialTheme.typography.bodySmall)
+            }
+            if (secundarios.isNotBlank()) {
+                Text("Secundario: $secundarios", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
 
 @Composable
-private fun StatCard(title: String, value: String, container: ColorScheme.() -> androidx.compose.ui.graphics.Color) {
+private fun StatCard(
+    title: String,
+    value: String,
+    container: ColorScheme.() -> androidx.compose.ui.graphics.Color
+) {
     Surface(
         shape = MaterialTheme.shapes.large,
         color = container(MaterialTheme.colorScheme),
@@ -545,12 +582,12 @@ private fun WorkoutSummaryContent(
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Volumen total", formatFloat(summary.totalVolume), { primaryContainer })
-                StatCard("Reps totales", "${summary.totalReps}", { secondaryContainer })
+                StatCard("Volumen total", formatFloat(summary.totalVolume)) { primaryContainer }
+                StatCard("Reps totales", "${summary.totalReps}") { secondaryContainer }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatCard("Ejercicios", "${summary.totalExercises}", { tertiaryContainer })
-                StatCard("Sets", "${summary.totalSets}", { surfaceVariant })
+                StatCard("Ejercicios", "${summary.totalExercises}") { tertiaryContainer }
+                StatCard("Sets", "${summary.totalSets}") { surfaceVariant }
             }
         }
 
@@ -558,10 +595,18 @@ private fun WorkoutSummaryContent(
             Text("Highlights", style = MaterialTheme.typography.titleMedium)
             summary.topExercisesByVolume.forEach { ex ->
                 Card {
-                    Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         Text(ex.exerciseName, style = MaterialTheme.typography.titleSmall)
                         Text("Volumen: ${formatFloat(ex.volume)}", style = MaterialTheme.typography.bodySmall)
-                        Text("Reps: ${ex.reps} · Sets: ${ex.sets} · Peso máx: ${formatFloat(ex.topWeight)}", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "Reps: ${ex.reps} · Sets: ${ex.sets} · Peso máx: ${formatFloat(ex.topWeight)}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }

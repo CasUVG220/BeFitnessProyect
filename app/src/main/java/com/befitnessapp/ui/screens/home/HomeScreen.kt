@@ -11,7 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.time.LocalDate
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.befitnessapp.Graph
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -27,18 +28,9 @@ fun HomeScreen(
     goProfile: () -> Unit,
     goSettings: () -> Unit
 ) {
-    // solo visual
+    val vm: HomeViewModel = viewModel(factory = HomeViewModel.factory(Graph.workoutRepository))
+    val ui by vm.uiState.collectAsState()
     val fmt = remember { DateTimeFormatter.ofPattern("EEE d MMM") }
-    val today = remember { LocalDate.now() }
-    val weekly = remember { WeeklyStats(volume = 12430f, reps = 468, sets = 72, prs = 3) }
-    val lastWorkouts = remember {
-        listOf(
-            UiWorkout("PPL – Push", today.minusDays(1), volume = 3520f, sets = 18, reps = 128),
-            UiWorkout("Lower – Squat focus", today.minusDays(3), 4110f, 22, 142),
-            UiWorkout("Pull – Back & Bi", today.minusDays(5), 3360f, 19, 120)
-        )
-    }
-
 
     Surface(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -49,29 +41,26 @@ fun HomeScreen(
         ) {
             item { Spacer(Modifier.height(6.dp)) }
 
-            // Cabecera
             item {
                 Column(Modifier.fillMaxWidth()) {
                     Text("Tu semana de entrenamiento", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("Hoy • ${fmt.format(today)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Hoy • ${fmt.format(ui.today)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
 
-            // KPIs
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatCard("Volumen (sem)", pretty(weekly.volume), container = { primaryContainer }, modifier = Modifier.weight(1f))
-                        StatCard("PRs (sem)", "${weekly.prs}", container = { tertiaryContainer }, modifier = Modifier.weight(1f))
+                        StatCard("Volumen (sem)", pretty(ui.weekVolume), container = { primaryContainer }, modifier = Modifier.weight(1f))
+                        StatCard("PRs (sem)", "${ui.weekPRs}", container = { tertiaryContainer }, modifier = Modifier.weight(1f))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatCard("Reps (sem)", "${weekly.reps}", container = { secondaryContainer }, modifier = Modifier.weight(1f))
-                        StatCard("Sets (sem)", "${weekly.sets}", container = { surfaceVariant }, modifier = Modifier.weight(1f))
+                        StatCard("Reps (sem)", "${ui.weekReps}", container = { secondaryContainer }, modifier = Modifier.weight(1f))
+                        StatCard("Sets (sem)", "${ui.weekSets}", container = { surfaceVariant }, modifier = Modifier.weight(1f))
                     }
                 }
             }
 
-            // Acciones rápidas
             item {
                 Text("Acciones rápidas", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
@@ -91,21 +80,18 @@ fun HomeScreen(
                 }
             }
 
-            // Último entrenamiento
             item {
                 ElevatedCard {
                     Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
+                        Modifier.fillMaxWidth().padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text("Último entrenamiento", style = MaterialTheme.typography.titleMedium)
-                        val last = lastWorkouts.firstOrNull()
+                        val last = ui.recent.firstOrNull()
                         if (last == null) {
                             Text("Aún no registras entrenamientos.")
                         } else {
-                            Text(last.title, fontWeight = FontWeight.SemiBold)
+                            Text(last.title, fontWeight = FontWeight.SemiBold) // ← usa título dinámico
                             Text(
                                 "${fmt.format(last.date)} • Volumen: ${pretty(last.volume)} · Sets: ${last.sets} · Reps: ${last.reps}",
                                 style = MaterialTheme.typography.bodySmall,
@@ -120,20 +106,15 @@ fun HomeScreen(
                 }
             }
 
-            // Mini mapa muscular (preview)
             item {
                 Text("Mapa muscular (preview)", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 MuscleGridPreview(
-                    groups = listOf(
-                        "Pecho", "Espalda", "Hombros", "Bíceps", "Tríceps", "Antebrazo",
-                        "Cuádriceps", "Isquios", "Glúteo", "Pantorrilla", "Core", "Trapecio"
-                    ),
+                    groups = listOf("Pecho","Espalda","Hombros","Bíceps","Tríceps","Antebrazo","Cuádriceps","Isquios","Glúteo","Pantorrilla","Core","Trapecio"),
                     onClick = { goMuscleMap() }
                 )
             }
 
-            // Recientes
             item {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -144,14 +125,15 @@ fun HomeScreen(
                     TextButton(onClick = goCalendar) { Text("Ver calendario") }
                 }
             }
-            items(lastWorkouts) { w ->
+
+            items(ui.recent) { w ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { goCalendar() }
                 ) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(w.title, fontWeight = FontWeight.SemiBold)
+                        Text(w.title, fontWeight = FontWeight.SemiBold) // ← usa título dinámico
                         Text(
                             "${fmt.format(w.date)} • Volumen: ${pretty(w.volume)} · Sets: ${w.sets} · Reps: ${w.reps}",
                             style = MaterialTheme.typography.bodySmall,
@@ -165,11 +147,6 @@ fun HomeScreen(
         }
     }
 }
-
-
-
-private data class WeeklyStats(val volume: Float, val reps: Int, val sets: Int, val prs: Int)
-private data class UiWorkout(val title: String, val date: LocalDate, val volume: Float, val sets: Int, val reps: Int)
 
 @Composable
 private fun StatCard(
@@ -200,16 +177,9 @@ private fun ActionTile(
     modifier: Modifier = Modifier
 ) {
     ElevatedCard(
-        modifier = modifier
-            .heightIn(min = 100.dp)
-            .clickable(onClick = onClick)
+        modifier = modifier.heightIn(min = 100.dp).clickable(onClick = onClick)
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(4.dp))
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -220,8 +190,7 @@ private fun ActionTile(
 @Composable
 private fun MuscleGridPreview(groups: List<String>, onClick: () -> Unit) {
     Column(
-        Modifier
-            .fillMaxWidth()
+        Modifier.fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.large)
             .padding(12.dp)
             .clickable(onClick = onClick),
@@ -236,21 +205,13 @@ private fun MuscleGridPreview(groups: List<String>, onClick: () -> Unit) {
                         tonalElevation = 1.dp,
                         shape = MaterialTheme.shapes.medium,
                         modifier = Modifier.weight(1f)
-                    ) {
-                        Box(Modifier.height(36.dp), contentAlignment = Alignment.Center) {
-                            Text(name, style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
+                    ) { Box(Modifier.height(36.dp), contentAlignment = Alignment.Center) { Text(name, style = MaterialTheme.typography.labelMedium) } }
                 }
                 if (row.size < 3) repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
         Spacer(Modifier.height(4.dp))
-        Text(
-            "Toca para ver el mapa completo",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text("Toca para ver el mapa completo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
