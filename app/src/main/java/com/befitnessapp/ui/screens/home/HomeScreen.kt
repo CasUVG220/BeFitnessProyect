@@ -28,7 +28,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -64,7 +63,8 @@ fun HomeScreen(
     val state by vm.uiState.collectAsState()
 
     val ctx = LocalContext.current
-    val settingsFlow = remember { AppSettings.observe(context = ctx) }
+    // 🔄 Leer siempre el flujo actual de settings (sin remember)
+    val settingsFlow = AppSettings.observe(context = ctx)
     val settings by settingsFlow.collectAsState(initial = SettingsState())
 
     val strings = LocalStrings.current.home
@@ -72,17 +72,17 @@ fun HomeScreen(
     val weightUnit: WeightUnit = settings.weightUnit
     val weeklyGoalKg: Float = settings.weeklyGoal
 
-    val fmt = remember { DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()) }
+    val fmt = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
 
     val weeklyVolumeText = formatVolumeFromKg(
         valueKg = state.weekly.volume,
         unit = weightUnit
     )
 
-    val weeklyProgress = remember(state.weekly.volume, weeklyGoalKg) {
+    // 🔄 Progreso siempre recalculado con la meta actual
+    val weeklyProgress =
         if (weeklyGoalKg <= 0f) 0f
         else (state.weekly.volume / weeklyGoalKg).coerceIn(0f, 1f)
-    }
 
     Surface(Modifier.fillMaxSize()) {
         LazyColumn(
@@ -423,7 +423,7 @@ private fun MusclePreviewCard(
                 contentDescription = "Mapa muscular frontal y posterior",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp),           // GRANDE
+                    .height(240.dp),
                 contentScale = ContentScale.Fit
             )
 

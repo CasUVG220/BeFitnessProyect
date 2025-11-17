@@ -2,15 +2,48 @@ package com.befitnessapp.ui.screens.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Card
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.befitnessapp.Graph
@@ -21,12 +54,14 @@ import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
     onBack: () -> Unit,
-    onAddWorkoutForDate: (LocalDate) -> Unit  // <- NUEVO: se pasa la fecha elegida
+    onAddWorkoutForDate: (LocalDate) -> Unit
 ) {
     val repo = Graph.workoutRepository
 
@@ -42,13 +77,12 @@ fun CalendarScreen(
     var openForDate by remember { mutableStateOf<LocalDate?>(null) }
 
     val monthTitle = remember(currentMonth) {
-        currentMonth.month.name.lowercase().replaceFirstChar { it.titlecase() } + " " + currentMonth.year
+        val monthName = currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+        "${monthName.replaceFirstChar { it.titlecase() }} ${currentMonth.year}"
     }
 
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-
-            /* ---------- Top bar simple ---------- */
             Surface(tonalElevation = 1.dp) {
                 Row(
                     Modifier
@@ -58,13 +92,17 @@ fun CalendarScreen(
                 ) {
                     TextButton(onClick = onBack) { Text("Atrás") }
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) { Text("<") }
+                    IconButton(onClick = { currentMonth = currentMonth.minusMonths(1) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Mes anterior")
+                    }
                     Text(
                         monthTitle,
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
-                    TextButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) { Text(">") }
+                    IconButton(onClick = { currentMonth = currentMonth.plusMonths(1) }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Mes siguiente")
+                    }
                 }
             }
             Divider()
@@ -72,26 +110,22 @@ fun CalendarScreen(
             MonthGrid(
                 month = currentMonth,
                 byDate = byDate,
+                selectedDate = openForDate,
                 onSelect = { d -> openForDate = d }
             )
 
-            // Leyenda simple
             Row(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Dot(color = MaterialTheme.colorScheme.primary)
-                Text("Con entrenamiento", style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.width(12.dp))
-                Dot(color = MaterialTheme.colorScheme.outline)
-                Text("Sin datos", style = MaterialTheme.typography.bodySmall)
+                LegendItem(color = MaterialTheme.colorScheme.primaryContainer, text = "Con entreno")
+                LegendItem(color = MaterialTheme.colorScheme.primary, text = "Seleccionado")
             }
         }
 
-        // Detalle del día
         openForDate?.let { theDate ->
             val items = byDate[theDate].orEmpty()
             ModalBottomSheet(
@@ -102,7 +136,7 @@ fun CalendarScreen(
                     date = theDate,
                     items = items,
                     onClose = { openForDate = null },
-                    onAddLog = { d -> onAddWorkoutForDate(d) } // <- pasa la fecha al host
+                    onAddLog = onAddWorkoutForDate
                 )
             }
         }
@@ -113,11 +147,13 @@ fun CalendarScreen(
 private fun MonthGrid(
     month: YearMonth,
     byDate: Map<LocalDate, List<WorkoutWithSets>>,
+    selectedDate: LocalDate?,
     onSelect: (LocalDate) -> Unit
 ) {
     val firstOfMonth = month.atDay(1)
     val length = month.lengthOfMonth()
     val firstDayOfWeekIndex = (firstOfMonth.dayOfWeek.value % 7) // 0=Domingo
+    val today = LocalDate.now()
 
     val weeks = remember(month) {
         buildList {
@@ -149,6 +185,8 @@ private fun MonthGrid(
                 row.forEach { d ->
                     DayCell(
                         date = d,
+                        isToday = d == today,
+                        isSelected = d == selectedDate,
                         hasWorkout = d != null && byDate[d].orEmpty().isNotEmpty(),
                         onClick = { if (d != null) onSelect(d) }
                     )
@@ -160,25 +198,55 @@ private fun MonthGrid(
 }
 
 @Composable
-private fun DayCell(date: LocalDate?, hasWorkout: Boolean, onClick: () -> Unit) {
+private fun DayCell(
+    date: LocalDate?,
+    isToday: Boolean,
+    isSelected: Boolean,
+    hasWorkout: Boolean,
+    onClick: () -> Unit
+) {
     val text = date?.dayOfMonth?.toString() ?: ""
-    val bg = if (hasWorkout) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f) else Color.Transparent
+
+    val backgroundColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        hasWorkout -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+        else -> Color.Transparent
+    }
+    val textColor = when {
+        isSelected -> MaterialTheme.colorScheme.onPrimary
+        hasWorkout -> MaterialTheme.colorScheme.onPrimaryContainer
+        isToday -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val fontWeight = if (isToday && !isSelected) FontWeight.Bold else FontWeight.Normal
+
     Surface(
         shape = MaterialTheme.shapes.medium,
-        tonalElevation = if (hasWorkout) 2.dp else 0.dp,
+        tonalElevation = if (hasWorkout && !isSelected) 2.dp else 0.dp,
+        color = Color.Transparent, // Surface is for elevation and shape, background is in the Box
         modifier = Modifier
             .size(40.dp)
-            .background(Color.Transparent)
             .clickable(enabled = date != null, onClick = onClick)
     ) {
-        Box(Modifier.fillMaxSize().background(bg), contentAlignment = Alignment.Center) {
-            Text(text)
+        Box(
+            modifier = Modifier.fillMaxSize().background(backgroundColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text, color = textColor, fontWeight = fontWeight)
         }
     }
 }
 
 @Composable
-private fun Dot(color: Color, size: Dp = 10.dp) {
+private fun LegendItem(color: Color, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Dot(color = color)
+        Text(text, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun Dot(color: Color, size: Dp = 14.dp) {
     Box(
         Modifier
             .size(size)
@@ -191,55 +259,71 @@ private fun DayDetail(
     date: LocalDate,
     items: List<WorkoutWithSets>,
     onClose: () -> Unit,
-    onAddLog: (LocalDate) -> Unit   // <- recibe fecha
+    onAddLog: (LocalDate) -> Unit
 ) {
-    val fmt = remember { DateTimeFormatter.ofPattern("yyyy-MM-dd") }
+    val fmt = remember { DateTimeFormatter.ofPattern("d 'de' MMMM, yyyy") }
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().padding(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Detalle • ${fmt.format(date)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            TextButton(onClick = onClose) { Text("Cerrar") }
+            Text("${fmt.format(date)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onClose) { Icon(Icons.Default.Close, contentDescription = "Cerrar") }
         }
 
         if (items.isEmpty()) {
-            Text("No hay entrenamiento registrado en este día.", style = MaterialTheme.typography.bodyMedium)
-            OutlinedButton(
-                onClick = { onAddLog(date) },   // <- abre AddLog con la fecha del día
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Loggear entrenamiento")
-            }
-        } else {
-            val totals = remember(items) { computeTotals(items) }
-            ElevatedCard {
-                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Resumen", style = MaterialTheme.typography.titleMedium)
-                    Text("Volumen: ${prettyFloat(totals.volume)}", style = MaterialTheme.typography.bodySmall)
-                    Text("Reps: ${totals.reps}  ·  Sets: ${totals.sets}  ·  Ejercicios: ${totals.exercises}", style = MaterialTheme.typography.bodySmall)
+                Text("No hay entrenamiento registrado en este día.", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                OutlinedButton(
+                    onClick = { onAddLog(date) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Registrar entrenamiento")
                 }
             }
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 16.dp)
+            ) {
+                item {
+                    val totals = remember(items) { computeTotals(items) }
+                    ElevatedCard(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Resumen", style = MaterialTheme.typography.titleMedium)
+                            Text("Volumen: ${prettyFloat(totals.volume)}", style = MaterialTheme.typography.bodySmall)
+                            Text("Reps: ${totals.reps}  ·  Sets: ${totals.sets}  ·  Ejercicios: ${totals.exercises}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
 
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(items) { ww ->
                     ExerciseCard(ww)
                 }
             }
         }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
 @Composable
 private fun ExerciseCard(ww: WorkoutWithSets) {
     val byEx = remember(ww) { ww.sets.groupBy { it.exerciseId } }
-    Card {
+    Card(modifier = Modifier.padding(horizontal = 16.dp)) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Entrenamiento", style = MaterialTheme.typography.titleMedium)
+            Text(ww.workout.notes ?: "Entrenamiento", style = MaterialTheme.typography.titleMedium)
+            Divider(modifier = Modifier.padding(vertical = 4.dp))
+
             byEx.forEach { (exId, sets) ->
                 val totals = remember(sets) { computeSetsTotals(sets) }
                 Text("• ${exerciseName(exId)}", fontWeight = FontWeight.SemiBold)

@@ -4,7 +4,6 @@ import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -114,43 +114,48 @@ fun OnboardingScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(vertical = 16.dp)
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
     ) {
-        HorizontalPager(
-            state = pagerState,
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-        ) { page ->
-            if (page < pages.size) {
-                OnboardingPageContent(data = pages[page])
-            } else {
-                ActionsPage(
-                    onGoogleSignIn = {
-                        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                            .requestIdToken(GOOGLE_WEB_CLIENT_ID)
-                            .requestEmail()
-                            .build()
-                        val client = GoogleSignIn.getClient(context, gso)
-                        googleLauncher.launch(client.signInIntent)
-                    },
-                    onTryDemo = onTryDemo,
-                    onLogin = onLogin,
-                    onRegister = onRegister
-                )
+                .fillMaxSize()
+                .padding(vertical = 16.dp)
+        ) {
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) { page ->
+                if (page < pages.size) {
+                    OnboardingPageContent(data = pages[page])
+                } else {
+                    ActionsPage(
+                        onGoogleSignIn = {
+                            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestIdToken(GOOGLE_WEB_CLIENT_ID)
+                                .requestEmail()
+                                .build()
+                            val client = GoogleSignIn.getClient(context, gso)
+                            googleLauncher.launch(client.signInIntent)
+                        },
+                        onTryDemo = onTryDemo,
+                        onLogin = onLogin,
+                        onRegister = onRegister
+                    )
+                }
             }
-        }
 
-        DotsIndicator(
-            totalDots = totalPages,
-            selectedIndex = pagerState.currentPage,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-        )
+            DotsIndicator(
+                totalDots = totalPages,
+                selectedIndex = pagerState.currentPage,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp)
+            )
+        }
     }
 }
 
@@ -221,27 +226,36 @@ private fun ActionsPage(
         )
         Spacer(Modifier.height(40.dp))
 
-        Button(
-            onClick = onGoogleSignIn,
-            modifier = Modifier.fillMaxWidth()
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 2.dp
         ) {
-            Text("Continuar con Google")
-        }
-        Spacer(Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = onTryDemo,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Probar como invitado")
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("¿Prefieres correo?")
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = onLogin) { Text("Inicia sesión") }
-            TextButton(onClick = onRegister) { Text("Regístrate") }
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Button(
+                    onClick = onGoogleSignIn,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Continuar con Google")
+                }
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onTryDemo,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Probar como invitado")
+                }
+                Spacer(Modifier.height(24.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("¿Prefieres correo?")
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onLogin) { Text("Inicia sesión") }
+                    TextButton(onClick = onRegister) { Text("Regístrate") }
+                }
+            }
         }
     }
 }
