@@ -2,7 +2,17 @@ package com.befitnessapp.ui.screens.routines
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -32,14 +42,9 @@ import com.befitnessapp.domain.catalog.Exercise
 import com.befitnessapp.domain.catalog.MuscleGroup
 import com.befitnessapp.domain.routines.RoutineDetail
 import com.befitnessapp.routines.RoutinesServiceLocator
+import com.befitnessapp.ui.localization.LocalStrings
 import kotlinx.coroutines.launch
 
-/**
- * Builder de rutinas (estable, sin APIs experimentales).
- * - initial != null → EDICIÓN (precarga nombre + #sets por ejercicio)
- * - initial == null → CREACIÓN
- * En ambos casos: nombre, ejercicios y CANTIDAD DE SETS (sin reps/peso).
- */
 @Composable
 fun RoutineBuilderScreen(
     vm: RoutineBuilderViewModel = viewModel(),
@@ -50,8 +55,13 @@ fun RoutineBuilderScreen(
     val ctx = LocalContext.current
     val repo = remember(ctx) { RoutinesServiceLocator.repository(ctx) }
     val scope = rememberCoroutineScope()
+    val strings = LocalStrings.current
 
-    LaunchedEffect(initial) { if (initial != null) vm.loadFrom(initial) }
+    LaunchedEffect(initial) {
+        if (initial != null) {
+            vm.loadFrom(initial)
+        }
+    }
 
     var showPicker by remember { mutableStateOf(false) }
     var showEmptyWarn by remember { mutableStateOf(false) }
@@ -63,35 +73,54 @@ fun RoutineBuilderScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = if (ui.routineId == null) "Nueva rutina" else "Editar rutina",
+                text = if (ui.routineId == null) {
+                    strings.routines.builderNewTitle
+                } else {
+                    strings.routines.builderEditTitle
+                },
                 style = MaterialTheme.typography.titleLarge
             )
             Spacer(Modifier.weight(1f))
             if (ui.routineId != null) {
-                OutlinedButton(onClick = { showDeleteConfirm = true }) { Text("Borrar") }
+                OutlinedButton(onClick = { showDeleteConfirm = true }) {
+                    Text(strings.routines.builderDeleteButton)
+                }
                 Spacer(Modifier.width(8.dp))
             }
-            OutlinedButton(onClick = onBack) { Text("Volver") }
+            OutlinedButton(onClick = onBack) {
+                Text(strings.routines.builderBackButton)
+            }
         }
 
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             OutlinedTextField(
                 value = ui.name,
                 onValueChange = vm::setName,
-                label = { Text("Nombre de la rutina") },
+                label = { Text(strings.routines.builderNameLabel) },
                 modifier = Modifier.weight(1f),
                 singleLine = true
             )
             Spacer(Modifier.width(12.dp))
-            Button(onClick = { showPicker = true }) { Text("Agregar ejercicio") }
+            Button(onClick = { showPicker = true }) {
+                Text(strings.routines.builderAddExerciseButton)
+            }
         }
 
-        Text("Contenido", style = MaterialTheme.typography.titleMedium)
+        Text(
+            strings.routines.builderContentTitle,
+            style = MaterialTheme.typography.titleMedium
+        )
 
         if (ui.exercises.isEmpty()) {
-            Text("Aún no has agregado ejercicios.")
+            Text(strings.routines.builderEmptyExercises)
         } else {
             LazyColumn(
                 modifier = Modifier
@@ -112,22 +141,44 @@ fun RoutineBuilderScreen(
                                 Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(ex?.name ?: "Ejercicio", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    ex?.name ?: strings.routines.builderExerciseFallback,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
                                 Spacer(Modifier.weight(1f))
-                                OutlinedButton(onClick = { vm.removeExercise(item.exerciseId) }) { Text("Eliminar") }
+                                OutlinedButton(onClick = { vm.removeExercise(item.exerciseId) }) {
+                                    Text(strings.routines.builderRemoveExerciseButton)
+                                }
                             }
                             Row(
                                 Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("Sets: ${item.sets.size}", style = MaterialTheme.typography.bodyMedium)
-                                OutlinedButton(onClick = {
-                                    vm.changeSetsCount(item.exerciseId, (item.sets.size - 1).coerceAtLeast(1))
-                                }) { Text("-") }
-                                OutlinedButton(onClick = {
-                                    vm.changeSetsCount(item.exerciseId, item.sets.size + 1)
-                                }) { Text("+") }
+                                Text(
+                                    "${strings.routines.builderSetsLabel} ${item.sets.size}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                OutlinedButton(
+                                    onClick = {
+                                        vm.changeSetsCount(
+                                            item.exerciseId,
+                                            (item.sets.size - 1).coerceAtLeast(1)
+                                        )
+                                    }
+                                ) {
+                                    Text("-")
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        vm.changeSetsCount(
+                                            item.exerciseId,
+                                            item.sets.size + 1
+                                        )
+                                    }
+                                ) {
+                                    Text("+")
+                                }
                             }
                         }
                     }
@@ -136,24 +187,49 @@ fun RoutineBuilderScreen(
         }
 
         val canSave = ui.name.isNotBlank() && ui.exercises.any { it.sets.isNotEmpty() }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(modifier = Modifier.weight(1f), onClick = onBack) { Text("Cancelar") }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                modifier = Modifier.weight(1f),
+                onClick = onBack
+            ) {
+                Text(strings.routines.builderCancelButton)
+            }
             Button(
                 modifier = Modifier.weight(1f),
                 enabled = canSave,
                 onClick = {
-                    if (!canSave) { showEmptyWarn = true; return@Button }
+                    if (!canSave) {
+                        showEmptyWarn = true
+                        return@Button
+                    }
                     scope.launch {
-                        val payload: List<Pair<Int, Int>> = ui.exercises.map { it.exerciseId to it.sets.size }
+                        val payload: List<Pair<Int, Int>> =
+                            ui.exercises.map { it.exerciseId to it.sets.size }
                         if (ui.routineId == null) {
                             repo.saveRoutine(name = ui.name.trim(), items = payload)
                         } else {
-                            repo.updateRoutine(id = ui.routineId!!, name = ui.name.trim(), items = payload)
+                            repo.updateRoutine(
+                                id = ui.routineId!!,
+                                name = ui.name.trim(),
+                                items = payload
+                            )
                         }
                         onBack()
                     }
                 }
-            ) { Text(if (ui.routineId == null) "Guardar" else "Guardar cambios") }
+            ) {
+                Text(
+                    if (ui.routineId == null) {
+                        strings.routines.builderSaveNewButton
+                    } else {
+                        strings.routines.builderSaveEditButton
+                    }
+                )
+            }
         }
     }
 
@@ -165,7 +241,10 @@ fun RoutineBuilderScreen(
                 .clickable { },
             color = Color.Transparent
         ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
                 Surface(
                     tonalElevation = 2.dp,
                     shape = MaterialTheme.shapes.large,
@@ -177,7 +256,7 @@ fun RoutineBuilderScreen(
                         onPick = { ex ->
                             showPicker = false
                             if (ui.exercises.none { it.exerciseId == ex.id }) {
-                                vm.addExercise(ex.id) // añade con 1 set por defecto
+                                vm.addExercise(ex.id)
                             }
                         },
                         onClose = { showPicker = false }
@@ -190,9 +269,13 @@ fun RoutineBuilderScreen(
     if (showEmptyWarn) {
         AlertDialog(
             onDismissRequest = { showEmptyWarn = false },
-            confirmButton = { Button(onClick = { showEmptyWarn = false }) { Text("Ok") } },
-            title = { Text("Rutina incompleta") },
-            text = { Text("Añade un nombre y al menos un ejercicio con 1 set.") }
+            confirmButton = {
+                Button(onClick = { showEmptyWarn = false }) {
+                    Text(LocalStrings.current.routines.incompleteOkButton)
+                }
+            },
+            title = { Text(LocalStrings.current.routines.incompleteTitle) },
+            text = { Text(LocalStrings.current.routines.incompleteText) }
         )
     }
 
@@ -200,32 +283,43 @@ fun RoutineBuilderScreen(
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             confirmButton = {
-                Button(onClick = {
-                    showDeleteConfirm = false
-                    scope.launch {
-                        repo.deleteRoutine(ui.routineId!!)
-                        onBack()
+                Button(
+                    onClick = {
+                        showDeleteConfirm = false
+                        scope.launch {
+                            repo.deleteRoutine(ui.routineId!!)
+                            onBack()
+                        }
                     }
-                }) { Text("Borrar") }
+                ) {
+                    Text(LocalStrings.current.routines.deleteDialogConfirm)
+                }
             },
-            dismissButton = { OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("Cancelar") } },
-            title = { Text("Borrar rutina") },
-            text = { Text("¿Seguro que deseas borrar esta rutina? Esta acción no se puede deshacer.") }
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirm = false }) {
+                    Text(LocalStrings.current.routines.deleteDialogCancel)
+                }
+            },
+            title = { Text(LocalStrings.current.routines.deleteDialogTitle) },
+            text = { Text(LocalStrings.current.routines.deleteDialogText) }
         )
     }
 }
-
-/* ---------------- Picker de ejercicios ---------------- */
 
 @Composable
 private fun ExercisePickerContent(
     onPick: (Exercise) -> Unit,
     onClose: () -> Unit
 ) {
+    val strings = LocalStrings.current
+
     var query by remember { mutableStateOf("") }
     var selectedGroup: MuscleGroup? by remember { mutableStateOf(null) }
     val results = remember(query, selectedGroup) {
-        Catalogo.searchExercises(query = query, groupId = selectedGroup?.id)
+        Catalogo.searchExercises(
+            query = query,
+            groupId = selectedGroup?.id
+        )
     }
 
     Column(
@@ -234,23 +328,31 @@ private fun ExercisePickerContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Elegir ejercicio", style = MaterialTheme.typography.titleLarge)
+        Text(strings.routines.pickerTitle, style = MaterialTheme.typography.titleLarge)
 
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
-            label = { Text("Buscar") },
+            label = { Text(strings.routines.pickerSearchLabel) },
             modifier = Modifier.fillMaxWidth()
         )
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(text = "Todos", selected = selectedGroup == null) { selectedGroup = null }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                text = strings.routines.pickerFilterAll,
+                selected = selectedGroup == null
+            ) { selectedGroup = null }
+
             Catalogo.allGroups.forEach { grp ->
                 FilterChip(
                     text = grp.name,
                     selected = selectedGroup?.id == grp.id
                 ) {
-                    selectedGroup = if (selectedGroup?.id == grp.id) null else grp
+                    selectedGroup =
+                        if (selectedGroup?.id == grp.id) null else grp
                 }
             }
         }
@@ -274,23 +376,40 @@ private fun ExercisePickerContent(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(ex.name, style = MaterialTheme.typography.titleMedium)
-                        Text("Patrón: ${ex.pattern}", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "${strings.routines.pickerPatternPrefix} ${ex.pattern}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }
             if (results.isEmpty()) {
-                item { Text("No se encontraron ejercicios.", style = MaterialTheme.typography.bodyMedium) }
+                item {
+                    Text(
+                        strings.routines.pickerNoResults,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            OutlinedButton(onClick = onClose) { Text("Cerrar") }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            OutlinedButton(onClick = onClose) {
+                Text(strings.routines.pickerCloseButton)
+            }
         }
     }
 }
 
 @Composable
-private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
+private fun FilterChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
     Surface(
         tonalElevation = if (selected) 2.dp else 0.dp,
         shape = MaterialTheme.shapes.small,

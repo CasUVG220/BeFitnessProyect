@@ -1,10 +1,30 @@
 package com.befitnessapp.ui.screens.routines
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -15,6 +35,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.befitnessapp.domain.routines.RoutineDetail
 import com.befitnessapp.routines.RoutinesServiceLocator
+import com.befitnessapp.ui.localization.LocalStrings
 import com.befitnessapp.ui.screens.routines.nav.RoutinesRoute
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -22,9 +43,11 @@ import kotlinx.coroutines.launch
 @Composable
 fun RoutinesScreen(onBack: () -> Unit) {
     val nav = rememberNavController()
-    NavHost(navController = nav, startDestination = RoutinesRoute.Home) {
 
-        // Home del módulo de Rutinas
+    NavHost(
+        navController = nav,
+        startDestination = RoutinesRoute.Home
+    ) {
         composable<RoutinesRoute.Home> {
             RoutinesHome(
                 onBack = onBack,
@@ -33,16 +56,16 @@ fun RoutinesScreen(onBack: () -> Unit) {
             )
         }
 
-        // Lista de rutinas
         composable<RoutinesRoute.List> {
             RoutinesList(
                 onBack = { nav.popBackStack() },
                 goBuilder = { nav.navigate(RoutinesRoute.Builder()) },
-                onOpen = { detail -> nav.navigate(RoutinesRoute.Builder(detail.routine.id)) }
+                onOpen = { detail ->
+                    nav.navigate(RoutinesRoute.Builder(detail.routine.id))
+                }
             )
         }
 
-        // Builder: crear/editar
         composable<RoutinesRoute.Builder> { backStackEntry ->
             val args = backStackEntry.toRoute<RoutinesRoute.Builder>()
             val ctx = LocalContext.current
@@ -67,6 +90,8 @@ private fun RoutinesHome(
     goList: () -> Unit,
     goBuilder: () -> Unit
 ) {
+    val strings = LocalStrings.current
+
     Scaffold { pad ->
         Column(
             Modifier
@@ -81,15 +106,34 @@ private fun RoutinesHome(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Rutinas", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    strings.routines.homeTitle,
+                    style = MaterialTheme.typography.titleLarge
+                )
                 Spacer(Modifier.weight(1f))
-                OutlinedButton(onClick = onBack) { Text("Volver") }
+                OutlinedButton(onClick = onBack) {
+                    Text(strings.routines.homeBackButton)
+                }
             }
 
-            Text("¿Qué deseas hacer?", style = MaterialTheme.typography.titleMedium)
+            Text(
+                strings.routines.homeQuestion,
+                style = MaterialTheme.typography.titleMedium
+            )
 
-            Button(onClick = goList, modifier = Modifier.fillMaxWidth()) { Text("Mis rutinas") }
-            OutlinedButton(onClick = goBuilder, modifier = Modifier.fillMaxWidth()) { Text("Crear nueva") }
+            Button(
+                onClick = goList,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(strings.routines.homeMyRoutinesButton)
+            }
+
+            OutlinedButton(
+                onClick = goBuilder,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(strings.routines.homeCreateNewButton)
+            }
         }
     }
 }
@@ -100,6 +144,7 @@ private fun RoutinesList(
     goBuilder: () -> Unit,
     onOpen: (RoutineDetail) -> Unit
 ) {
+    val strings = LocalStrings.current
     val ctx = LocalContext.current
     val repo = remember(ctx) { RoutinesServiceLocator.repository(ctx) }
     val scope = rememberCoroutineScope()
@@ -127,14 +172,21 @@ private fun RoutinesList(
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Mis rutinas", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    strings.routines.listTitle,
+                    style = MaterialTheme.typography.titleLarge
+                )
                 Spacer(Modifier.weight(1f))
-                OutlinedButton(onClick = onBack) { Text("Volver") }
+                OutlinedButton(onClick = onBack) {
+                    Text(strings.routines.listBackButton)
+                }
             }
 
             if (routines.isEmpty()) {
-                Text("Aún no tienes rutinas. Crea una desde “Crear nueva”.")
-                OutlinedButton(onClick = goBuilder) { Text("Crear nueva") }
+                Text(strings.routines.listEmptyText)
+                OutlinedButton(onClick = goBuilder) {
+                    Text(strings.routines.listEmptyCreateButton)
+                }
                 return@Column
             }
 
@@ -153,16 +205,36 @@ private fun RoutinesList(
                                 .padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(r.routine.name.ifBlank { "Rutina" }, style = MaterialTheme.typography.titleMedium)
-                            Text("Ejercicios: $totalExercises · Sets totales: $totalSets", style = MaterialTheme.typography.bodySmall)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                OutlinedButton(onClick = { onOpen(r) }) { Text("Editar / Abrir") }
+                            Text(
+                                r.routine.name.ifBlank { strings.routines.listCardFallbackName },
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "${strings.routines.listCardExercisesLabel}: $totalExercises · " +
+                                        "${strings.routines.listCardTotalSetsLabel}: $totalSets",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                OutlinedButton(onClick = { onOpen(r) }) {
+                                    Text(strings.routines.listOpenButton)
+                                }
                                 Spacer(Modifier.width(8.dp))
-                                OutlinedButton(onClick = {
-                                    pendingDeleteId = r.routine.id
-                                    pendingDeleteName = r.routine.name.ifBlank { "Rutina" }
-                                    confirmDelete = true
-                                }) { Text("Borrar", color = MaterialTheme.colorScheme.error) }
+                                OutlinedButton(
+                                    onClick = {
+                                        pendingDeleteId = r.routine.id
+                                        pendingDeleteName =
+                                            r.routine.name.ifBlank { strings.routines.listCardFallbackName }
+                                        confirmDelete = true
+                                    }
+                                ) {
+                                    Text(
+                                        strings.routines.listDeleteButton,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
                             }
                         }
                     }
@@ -176,9 +248,19 @@ private fun RoutinesList(
                     .padding(top = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) { Text("Volver") }
+                OutlinedButton(
+                    onClick = onBack,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(strings.routines.listBottomBackButton)
+                }
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = goBuilder, modifier = Modifier.weight(1f)) { Text("Crear nueva") }
+                Button(
+                    onClick = goBuilder,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(strings.routines.listBottomCreateNewButton)
+                }
             }
         }
     }
@@ -187,15 +269,30 @@ private fun RoutinesList(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             confirmButton = {
-                Button(onClick = {
-                    val id = pendingDeleteId!!
-                    confirmDelete = false
-                    scope.launch { repo.deleteRoutine(id) }
-                }) { Text("Borrar") }
+                Button(
+                    onClick = {
+                        val id = pendingDeleteId!!
+                        confirmDelete = false
+                        scope.launch { repo.deleteRoutine(id) }
+                    }
+                ) {
+                    Text(strings.routines.deleteDialogConfirm)
+                }
             },
-            dismissButton = { OutlinedButton(onClick = { confirmDelete = false }) { Text("Cancelar") } },
-            title = { Text("Borrar rutina") },
-            text = { Text("¿Seguro que deseas borrar “$pendingDeleteName”? Esta acción no se puede deshacer.") }
+            dismissButton = {
+                OutlinedButton(onClick = { confirmDelete = false }) {
+                    Text(strings.routines.deleteDialogCancel)
+                }
+            },
+            title = { Text(strings.routines.deleteDialogTitle) },
+            text = {
+                Text(
+                    strings.routines.deleteDialogText.replace(
+                        "esta rutina",
+                        "“$pendingDeleteName”"
+                    )
+                )
+            }
         )
     }
 }

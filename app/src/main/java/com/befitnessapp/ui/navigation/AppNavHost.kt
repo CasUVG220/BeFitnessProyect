@@ -1,8 +1,10 @@
 package com.befitnessapp.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.navigation.compose.*
-import androidx.navigation.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.befitnessapp.ui.screens.addlog.AddWorkoutScreen
 import com.befitnessapp.ui.screens.auth.LoginScreen
 import com.befitnessapp.ui.screens.auth.RegisterScreen
@@ -76,12 +78,29 @@ fun AppNavHost() {
             )
         }
 
-        composable<Dashboard> { DashboardScreen(onBack = { nav.popBackStack() }) }
-        composable<Library> { LibraryScreen(onBack = { nav.popBackStack() }) }
-        composable<MuscleMap> { MuscleMapScreen(onBack = { nav.popBackStack() }) }
-        composable<WorkoutLog> { WorkoutLogScreen(onBack = { nav.popBackStack() }) }
-        composable<Recommendations> { RecommendationsScreen(onBack = { nav.popBackStack() }) }
-        composable<Routines> { RoutinesScreen(onBack = { nav.popBackStack() }) }
+        composable<Dashboard> {
+            DashboardScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable<Library> {
+            LibraryScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable<MuscleMap> {
+            MuscleMapScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable<WorkoutLog> {
+            WorkoutLogScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable<Recommendations> {
+            RecommendationsScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable<Routines> {
+            RoutinesScreen(onBack = { nav.popBackStack() })
+        }
 
         composable<Calendar> {
             CalendarScreen(
@@ -92,12 +111,19 @@ fun AppNavHost() {
             )
         }
 
-        composable<Profile> { ProfileScreen(onBack = { nav.popBackStack() }) }
-        composable<Settings> { SettingsScreen(onBack = { nav.popBackStack() }) }
+        composable<Profile> {
+            ProfileScreen(onBack = { nav.popBackStack() })
+        }
+
+        composable<Settings> {
+            SettingsScreen(onBack = { nav.popBackStack() })
+        }
 
         composable<AddLog> { entry ->
             val args = entry.toRoute<AddLog>()
-            val initialDate = args.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            val initialDate = args.date?.let {
+                runCatching { LocalDate.parse(it) }.getOrNull()
+            }
             AddWorkoutScreen(
                 onBack = { nav.popBackStack() },
                 initialDate = initialDate

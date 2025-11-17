@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.befitnessapp.Graph
 import com.befitnessapp.domain.catalog.Catalogo
 import com.befitnessapp.domain.recommendation.ExerciseScore
+import com.befitnessapp.ui.localization.LocalStrings
 
 @Composable
 fun RecommendationsScreen(onBack: () -> Unit) {
@@ -19,20 +20,36 @@ fun RecommendationsScreen(onBack: () -> Unit) {
         viewModel(factory = RecommendationsViewModel.factory(Graph.workoutRepository))
     val list by vm.suggestions.collectAsState()
 
-    Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Recomendaciones (equilibrio 14 días)", style = MaterialTheme.typography.headlineSmall)
+    val strings = LocalStrings.current.recommendations
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(strings.title, style = MaterialTheme.typography.headlineSmall)
         Text(
-            "Priorizamos los músculos con menor cobertura vs. tu meta semanal.",
+            strings.subtitle,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         if (list.isEmpty()) {
             ElevatedCard {
-                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("¡Todo cubierto por ahora!", fontWeight = FontWeight.SemiBold)
-                    Text("Loggea más entrenos para personalizar mejor las sugerencias.")
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(strings.allCoveredTitle, fontWeight = FontWeight.SemiBold)
+                    Text(strings.allCoveredText)
                 }
+            }
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+                Text(strings.backButton)
             }
         } else {
             LazyColumn(
@@ -41,7 +58,12 @@ fun RecommendationsScreen(onBack: () -> Unit) {
             ) {
                 items(list) { s -> ExerciseSuggestionCard(s) }
                 item { Spacer(Modifier.height(12.dp)) }
-                item { OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Volver") } }
+                item {
+                    OutlinedButton(
+                        onClick = onBack,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(strings.backButton) }
+                }
             }
         }
     }
@@ -49,22 +71,37 @@ fun RecommendationsScreen(onBack: () -> Unit) {
 
 @Composable
 private fun ExerciseSuggestionCard(s: ExerciseScore) {
+    val strings = LocalStrings.current.recommendations
+
     Card {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Text(s.name, style = MaterialTheme.typography.titleMedium)
+
+            val formattedScore = formatScore(s.score)
             Text(
-                "Prioridad: ${formatScore(s.score)}",
+                strings.priorityLabel(formattedScore),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             if (s.deficits.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     s.deficits.entries
                         .sortedByDescending { it.value }
                         .forEach { (canonicalId, deficit) ->
-                            val label = Catalogo.muscleById[canonicalId]?.name ?: "Músculo $canonicalId"
-                            SuggestionChip("$label • ${percent(deficit)}")
+                            val label = Catalogo.muscleById[canonicalId]?.name
+                                ?: "Músculo $canonicalId"
+                            val pct = (deficit * 100).toInt()
+                            val chipText = strings.deficitChipLabel(label, pct)
+                            SuggestionChip(chipText)
                         }
                 }
             }
@@ -79,7 +116,6 @@ private fun FlowRow(
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
     content: @Composable () -> Unit
 ) {
-    // Fallback ligero para evitar dependencia adicional:
     Column(modifier = modifier, verticalArrangement = verticalArrangement) {
         Row(horizontalArrangement = horizontalArrangement) { content() }
     }
@@ -100,7 +136,6 @@ private fun SuggestionChip(text: String) {
     }
 }
 
-private fun percent(v: Float): String = "${(v * 100).toInt()}%"
 private fun formatScore(v: Float): String {
     val s = String.format("%.2f", v)
     return if (s.endsWith("0")) s.trimEnd('0').trimEnd('.') else s

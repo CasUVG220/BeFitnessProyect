@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.befitnessapp.Graph
 import com.befitnessapp.data.local.entity.WorkoutSetEntity
 import com.befitnessapp.domain.catalog.Catalogo
+import com.befitnessapp.ui.localization.LocalStrings
 import java.time.format.DateTimeFormatter
 
 @Composable
@@ -21,14 +22,15 @@ fun WorkoutLogScreen(onBack: () -> Unit) {
         viewModel(factory = WorkoutLogViewModel.factory(Graph.workoutRepository))
     val items by vm.recent.collectAsState(emptyList())
     val fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+    val strings = LocalStrings.current.log
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Historial de entrenos", style = MaterialTheme.typography.headlineSmall)
+        Text(strings.title, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(12.dp))
 
         if (items.isEmpty()) {
             Text(
-                "Aún no registras entrenos. ¡Empieza en “Agregar entrenamiento”!",
+                strings.emptyText,
                 style = MaterialTheme.typography.bodyMedium
             )
         } else {
@@ -40,18 +42,20 @@ fun WorkoutLogScreen(onBack: () -> Unit) {
                     Card {
                         Column(Modifier.fillMaxWidth().padding(12.dp)) {
                             Text(
-                                "Fecha: ${w.workout.date.format(fmt)}",
+                                "${strings.datePrefix} ${w.workout.date.format(fmt)}",
                                 style = MaterialTheme.typography.titleMedium
                             )
 
                             if (!w.workout.notes.isNullOrBlank()) {
                                 Spacer(Modifier.height(4.dp))
-                                Text("Notas: ${w.workout.notes}", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    "${strings.notesPrefix} ${w.workout.notes}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
 
                             Spacer(Modifier.height(8.dp))
 
-                            // Agrupar sets por ejercicio con tipos explícitos
                             val grouped: Map<Int, List<WorkoutSetEntity>> =
                                 w.sets.groupBy { it.exerciseId }
                             val orderedExerciseIds: List<Int> = grouped.keys.sorted()
@@ -62,8 +66,7 @@ fun WorkoutLogScreen(onBack: () -> Unit) {
 
                                 Text(name, style = MaterialTheme.typography.bodyMedium)
                                 list.sortedBy { it.setIndex }.forEach { s ->
-                                    // Mostrar “reps · peso X” (sin “@”)
-                                    Text("• ${s.reps} reps · peso ${s.weight}")
+                                    Text(strings.repsWeightFormat(s.reps, s.weight))
                                 }
                                 Spacer(Modifier.height(4.dp))
                             }
@@ -74,10 +77,11 @@ fun WorkoutLogScreen(onBack: () -> Unit) {
         }
 
         Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Volver") }
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+            Text(strings.backButton)
+        }
     }
 }
-
 
 private fun exerciseNameById(exId: Int): String {
     val all = Catalogo.searchExercises(query = "", groupId = null)
