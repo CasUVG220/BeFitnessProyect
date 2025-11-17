@@ -1,6 +1,14 @@
 package com.befitnessapp.ui.screens.profile
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
@@ -15,16 +23,20 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.befitnessapp.Graph
 import com.befitnessapp.auth.AuthState
+import com.befitnessapp.data.local.db.DatabaseProvider
 import com.befitnessapp.ui.localization.LocalStrings
 import com.befitnessapp.ui.localization.ProfileStrings
 import com.befitnessapp.ui.screens.auth.AuthViewModel
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
@@ -36,13 +48,14 @@ fun ProfileScreen(
     val state by vm.uiState.collectAsState()
     val strings = LocalStrings.current.profile
 
-    // Auth
     val authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModel.factory(Graph.authRepository)
     )
     val authState by authViewModel.authState.collectAsState(initial = AuthState.Loading)
 
-    // Nombre y correo según estado de autenticación
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     val (displayName, emailText) = when (val s = authState) {
         is AuthState.SignedIn -> {
             val name = s.user.displayName?.ifBlank { null } ?: "Usuario BeFitness"
@@ -88,7 +101,14 @@ fun ProfileScreen(
                 displayName = displayName,
                 email = emailText,
                 onLogout = {
+                    // 1) Borrar datos locales de workouts
+                    scope.launch {
+                        val db = DatabaseProvider.get(context)
+                        db.workoutDao().deleteAllWorkoutsAndSets()
+                    }
+                    // 2) Cerrar sesión en Firebase
                     authViewModel.logout()
+                    // 3) Navegar fuera del perfil
                     onLogout()
                 }
             )

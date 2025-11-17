@@ -15,7 +15,7 @@ data class WorkoutWithSets(
     val sets: List<WorkoutSetEntity>
 )
 
-// agregarcion por ejercicios
+// agregación por ejercicios
 data class ExerciseAgg(
     val exerciseId: Int,
     val sets: Int,
@@ -93,8 +93,6 @@ interface WorkoutDao {
     )
     suspend fun getMaxWeightForExercise(exerciseId: Int): Float?
 
-    //NUEVO: Agregaciones para el algoritmo
-
     @Query(
         """
         SELECT 
@@ -123,8 +121,7 @@ interface WorkoutDao {
         """
     )
     fun observeDaysWithLogsBetween(from: LocalDate, to: LocalDate): Flow<List<LocalDate>>
-    // 🔥 PRs: cuántos ejercicios tienen su peso MÁXIMO global
-    // en un workout dentro del rango [from, to]
+
     @Query(
         """
         SELECT COUNT(DISTINCT ws.exerciseId) AS value
@@ -145,5 +142,17 @@ interface WorkoutDao {
     )
     fun observePrsBetween(from: LocalDate, to: LocalDate): Flow<Int>
 
-}
+    // ==== NUEVO: borrar todo para logout ====
 
+    @Query("DELETE FROM workout_set")
+    suspend fun deleteAllSets()
+
+    @Query("DELETE FROM workout")
+    suspend fun deleteAllWorkouts()
+
+    @Transaction
+    suspend fun deleteAllWorkoutsAndSets() {
+        deleteAllSets()
+        deleteAllWorkouts()
+    }
+}

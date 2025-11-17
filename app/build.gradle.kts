@@ -96,6 +96,11 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    //google log in
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+
 }
 
 // Aplica google-services solo si existe el JSON

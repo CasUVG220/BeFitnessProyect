@@ -1,5 +1,8 @@
 package com.befitnessapp.ui.screens.onboarding
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -8,12 +11,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.befitnessapp.Graph
+import com.befitnessapp.auth.AuthState
+import com.befitnessapp.auth.GOOGLE_WEB_CLIENT_ID
 import com.befitnessapp.ui.components.DotsIndicator
+import com.befitnessapp.ui.screens.auth.AuthViewModel
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 
 @Composable
 fun OnboardingScreen(
@@ -21,7 +36,6 @@ fun OnboardingScreen(
     onLogin: () -> Unit,
     onRegister: () -> Unit
 ) {
-    // 5 mensajes + 1 slide final de acciones
     val messages = remember {
         listOf(
             "BeFitness",
@@ -31,9 +45,40 @@ fun OnboardingScreen(
             "Recibe rutinas y sugerencias"
         )
     }
-    val totalPages = messages.size + 1 // +1 para la página de CTAs
+    val totalPages = messages.size + 1
 
     val pagerState = rememberPagerState(pageCount = { totalPages })
+
+    // Auth: para saber si ya hay usuario loggeado y hacer login con Google
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModel.factory(Graph.authRepository)
+    )
+    val authState by authViewModel.authState.collectAsState(initial = AuthState.Loading)
+
+    val context = LocalContext.current
+
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = task.getResult(ApiException::class.java)
+                val idToken = account.idToken
+                if (idToken != null) {
+                    authViewModel.loginWithGoogle(idToken)
+                }
+            } catch (_: ApiException) {
+            }
+        }
+    }
+
+    // Si ya hay usuario autenticado, saltamos Onboarding → Home
+    LaunchedEffect(authState) {
+        if (authState is AuthState.SignedIn) {
+            onTryDemo()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -41,7 +86,6 @@ fun OnboardingScreen(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Contenido deslizable
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -53,7 +97,6 @@ fun OnboardingScreen(
                 modifier = Modifier.fillMaxSize()
             ) { page ->
                 if (page < messages.size) {
-                    // Slides de texto
                     Text(
                         text = messages[page],
                         style = MaterialTheme.typography.headlineMedium,
@@ -63,7 +106,6 @@ fun OnboardingScreen(
                             .padding(horizontal = 8.dp)
                     )
                 } else {
-                    // Slide final (CTAs)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -86,6 +128,23 @@ fun OnboardingScreen(
                         }
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
+                            onClick = {
+                                val gso = GoogleSignInOptions.Builder(
+                                    GoogleSignInOptions.DEFAULT_SIGN_IN
+                                )
+                                    .requestIdToken(GOOGLE_WEB_CLIENT_ID)
+                                    .requestEmail()
+                                    .build()
+
+                                val client = GoogleSignIn.getClient(context, gso)
+                                googleLauncher.launch(client.signInIntent)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Iniciar sesión con Google")
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
                             onClick = onLogin,
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -103,7 +162,6 @@ fun OnboardingScreen(
             }
         }
 
-        // Indicadores de página
         DotsIndicator(
             totalDots = totalPages,
             selectedIndex = pagerState.currentPage,
