@@ -78,15 +78,24 @@ fun OnboardingScreen(
                                 .fillMaxWidth()
                                 .padding(bottom = 12.dp)
                         )
-                        Button(onClick = onTryDemo, modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = onTryDemo,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text("Probar demo")
                         }
                         Spacer(Modifier.height(8.dp))
-                        OutlinedButton(onClick = onLogin, modifier = Modifier.fillMaxWidth()) {
-                            Text("Entrar con Google")
+                        OutlinedButton(
+                            onClick = onLogin,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Iniciar sesión con correo")
                         }
                         Spacer(Modifier.height(8.dp))
-                        OutlinedButton(onClick = onRegister, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = onRegister,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Text("Crear cuenta")
                         }
                     }
@@ -94,13 +103,13 @@ fun OnboardingScreen(
             }
         }
 
-        // Indicadores de página (elegantes, al fondo con padding)
+        // Indicadores de página
         DotsIndicator(
             totalDots = totalPages,
             selectedIndex = pagerState.currentPage,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp) // “no tan” abajo, con margen
+                .padding(bottom = 24.dp)
         )
     }
 }

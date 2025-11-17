@@ -8,6 +8,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -20,14 +21,38 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.befitnessapp.Graph
+import com.befitnessapp.auth.AuthState
 import com.befitnessapp.ui.localization.LocalStrings
+import com.befitnessapp.ui.localization.ProfileStrings
+import com.befitnessapp.ui.screens.auth.AuthViewModel
 
 @Composable
-fun ProfileScreen(onBack: () -> Unit) {
+fun ProfileScreen(
+    onBack: () -> Unit,
+    onLogout: () -> Unit
+) {
     val vm: ProfileViewModel =
         viewModel(factory = ProfileViewModel.factory(Graph.workoutRepository))
     val state by vm.uiState.collectAsState()
     val strings = LocalStrings.current.profile
+
+    // Auth
+    val authViewModel: AuthViewModel = viewModel(
+        factory = AuthViewModel.factory(Graph.authRepository)
+    )
+    val authState by authViewModel.authState.collectAsState(initial = AuthState.Loading)
+
+    // Nombre y correo según estado de autenticación
+    val (displayName, emailText) = when (val s = authState) {
+        is AuthState.SignedIn -> {
+            val name = s.user.displayName?.ifBlank { null } ?: "Usuario BeFitness"
+            val mail = s.user.email?.ifBlank { null } ?: "Sin correo"
+            name to mail
+        }
+        is AuthState.SignedOut -> "Invitado" to "Sin sesión"
+        AuthState.Loading -> "Cargando..." to ""
+        is AuthState.Error -> "Error" to (s.message.ifBlank { "Error de autenticación" })
+    }
 
     Scaffold(
         topBar = {
@@ -58,7 +83,15 @@ fun ProfileScreen(onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            AccountCard(strings)
+            AccountCard(
+                strings = strings,
+                displayName = displayName,
+                email = emailText,
+                onLogout = {
+                    authViewModel.logout()
+                    onLogout()
+                }
+            )
 
             if (state.totalWorkouts == 0) {
                 EmptyStatsCard(strings)
@@ -71,7 +104,12 @@ fun ProfileScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun AccountCard(strings: com.befitnessapp.ui.localization.ProfileStrings) {
+private fun AccountCard(
+    strings: ProfileStrings,
+    displayName: String,
+    email: String,
+    onLogout: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors()
@@ -80,7 +118,7 @@ private fun AccountCard(strings: com.befitnessapp.ui.localization.ProfileStrings
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = strings.accountSectionTitle,
@@ -88,18 +126,33 @@ private fun AccountCard(strings: com.befitnessapp.ui.localization.ProfileStrings
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text(strings.accountNameLabel, style = MaterialTheme.typography.bodyMedium)
-            Text(strings.accountEmailLabel, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = "Nombre: $displayName",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = "Correo: $email",
+                style = MaterialTheme.typography.bodyMedium
+            )
             Text(
                 text = strings.accountSourceLabel,
                 style = MaterialTheme.typography.bodySmall
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(text = "Cerrar sesión")
+            }
         }
     }
 }
 
 @Composable
-private fun EmptyStatsCard(strings: com.befitnessapp.ui.localization.ProfileStrings) {
+private fun EmptyStatsCard(strings: ProfileStrings) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors()
@@ -129,7 +182,7 @@ private fun EmptyStatsCard(strings: com.befitnessapp.ui.localization.ProfileStri
 
 @Composable
 private fun SummaryCard(
-    strings: com.befitnessapp.ui.localization.ProfileStrings,
+    strings: ProfileStrings,
     state: ProfileUiState
 ) {
     Card(
@@ -185,7 +238,7 @@ private fun SummaryCard(
 
 @Composable
 private fun StreaksCard(
-    strings: com.befitnessapp.ui.localization.ProfileStrings,
+    strings: ProfileStrings,
     state: ProfileUiState
 ) {
     Card(

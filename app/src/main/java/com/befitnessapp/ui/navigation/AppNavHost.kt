@@ -112,8 +112,12 @@ fun AppNavHost() {
         }
 
         composable<Profile> {
-            ProfileScreen(onBack = { nav.popBackStack() })
+            ProfileScreen(
+                onBack = { nav.popBackStack() },
+                onLogout = { nav.navigate(Onboarding) }
+            )
         }
+
 
         composable<Settings> {
             SettingsScreen(onBack = { nav.popBackStack() })
