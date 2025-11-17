@@ -1,8 +1,19 @@
 package com.befitnessapp.ui.screens.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -20,11 +31,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.befitnessapp.Graph
+import com.befitnessapp.R
 import com.befitnessapp.prefs.AppSettings
 import com.befitnessapp.prefs.SettingsState
 import com.befitnessapp.prefs.WeightUnit
@@ -284,26 +298,10 @@ fun HomeScreen(
                 }
             }
 
-            // Preview de mapa muscular
+            // Preview de mapa muscular (imagen grande)
             item {
-                Text(strings.musclePreviewTitle, style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                MuscleGridPreview(
-                    groups = listOf(
-                        "Pecho", "Espalda", "Hombros",
-                        "Bíceps", "Tríceps", "Antebrazo",
-                        "Cuádriceps", "Isquios", "Glúteo",
-                        "Pantorrilla", "Core", "Trapecio"
-                    ),
-                    onClick = goMuscleMap
-                )
-            }
-
-            item {
-                Text(
-                    strings.musclePreviewHint,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                MusclePreviewCard(
+                    onOpenMuscleMap = goMuscleMap
                 )
             }
 
@@ -402,40 +400,48 @@ private fun ActionTile(
 }
 
 @Composable
-private fun MuscleGridPreview(groups: List<String>, onClick: () -> Unit) {
-    Column(
-        Modifier
+private fun MusclePreviewCard(
+    onOpenMuscleMap: () -> Unit
+) {
+    val strings = LocalStrings.current.home
+
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 2.dp,
+        modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.large)
-            .padding(12.dp)
-            .clickable(onClick = onClick),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .clickable { onOpenMuscleMap() }
     ) {
-        val rows = groups.chunked(3)
-        rows.forEach { row ->
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                row.forEach { name ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                        tonalElevation = 1.dp,
-                        shape = MaterialTheme.shapes.medium,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            Modifier.height(36.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(name, style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-                if (row.size < 3) repeat(3 - row.size) {
-                    Spacer(Modifier.weight(1f))
-                }
-            }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.muscular),
+                contentDescription = "Mapa muscular frontal y posterior",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp),           // GRANDE
+                contentScale = ContentScale.Fit
+            )
+
+            Text(
+                text = strings.musclePreviewTitle,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = strings.musclePreviewHint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Toca para abrir el mapa completo.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

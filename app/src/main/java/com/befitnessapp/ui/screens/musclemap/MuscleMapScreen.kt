@@ -1,7 +1,7 @@
 package com.befitnessapp.ui.screens.musclemap
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -19,27 +20,24 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.befitnessapp.Graph
+import com.befitnessapp.R
 import com.befitnessapp.domain.catalog.Catalogo
-import com.befitnessapp.ui.localization.LocalStrings
 
 @Composable
 fun MuscleMapScreen(onBack: () -> Unit) {
     val vm: MuscleMapViewModel =
         viewModel(factory = MuscleMapViewModel.factory(Graph.workoutRepository))
     val coverage by vm.coverageByCanonical.collectAsState()
-
-    var view by remember { mutableStateOf(BodyView.Front) }
-    val strings = LocalStrings.current.muscleMap
 
     Surface(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
@@ -50,9 +48,12 @@ fun MuscleMapScreen(onBack: () -> Unit) {
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedButton(onClick = onBack) { Text(strings.topBarBackButton) }
+                    OutlinedButton(onClick = onBack) { Text("Atrás") }
                     Spacer(Modifier.weight(1f))
-                    Segmented(view = view, onChange = { view = it })
+                    Text(
+                        "Mapa muscular",
+                        style = MaterialTheme.typography.titleMedium
+                    )
                 }
             }
             HorizontalDivider()
@@ -63,9 +64,9 @@ fun MuscleMapScreen(onBack: () -> Unit) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                SilhouettePlaceholder(view = view)
+                BodyMapCard()
 
-                Text(strings.coverageTitle, style = MaterialTheme.typography.titleMedium)
+                Text("Cobertura (14 días)", style = MaterialTheme.typography.titleMedium)
 
                 val musclesByGroup = remember(vm.canonicalMuscles) {
                     vm.canonicalMuscles.groupBy { it.groupId }
@@ -108,83 +109,109 @@ fun MuscleMapScreen(onBack: () -> Unit) {
                 OutlinedButton(
                     onClick = onBack,
                     modifier = Modifier.fillMaxWidth()
-                ) { Text(strings.fullBackButton) }
+                ) { Text("Volver") }
             }
         }
     }
 }
 
-private enum class BodyView { Front, Back, Side }
-
 @Composable
-private fun Segmented(view: BodyView, onChange: (BodyView) -> Unit) {
-    val strings = LocalStrings.current.muscleMap
-
-    Row(
-        Modifier
-            .background(
-                MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.small
-            )
-            .padding(4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        SegBtn(strings.segmentedFront, view == BodyView.Front) { onChange(BodyView.Front) }
-        SegBtn(strings.segmentedBack, view == BodyView.Back) { onChange(BodyView.Back) }
-        SegBtn(strings.segmentedSide, view == BodyView.Side) { onChange(BodyView.Side) }
-    }
-}
-
-@Composable
-private fun SegBtn(text: String, selected: Boolean, onClick: () -> Unit) {
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        tonalElevation = if (selected) 1.dp else 0.dp,
-        modifier = Modifier
-            .padding(horizontal = 2.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Text(
-            text,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-        )
-    }
-}
-
-@Composable
-private fun SilhouettePlaceholder(view: BodyView) {
-    val strings = LocalStrings.current.muscleMap
-
+private fun BodyMapCard() {
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 1.dp,
         shape = MaterialTheme.shapes.large,
         modifier = Modifier.fillMaxWidth()
     ) {
-        val base = when (view) {
-            BodyView.Front -> strings.silhouetteFront
-            BodyView.Back -> strings.silhouetteBack
-            BodyView.Side -> strings.silhouetteSide
-        }
-        Box(
-            Modifier.height(180.dp),
-            contentAlignment = Alignment.Center
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Image(
+                painter = painterResource(id = R.drawable.muscular),
+                contentDescription = "Mapa muscular frontal y posterior",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp),
+                contentScale = ContentScale.Fit
+            )
             Text(
-                "$base ${strings.silhouettePlaceholderSuffix}",
+                "Cada color representa un grupo muscular (pecho, espalda, hombros, brazos, piernas, core, etc.).",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            MuscleGroupLegend()
         }
     }
 }
 
 @Composable
+private fun MuscleGroupLegend() {
+    val items = listOf(
+        "Pecho" to Color(0xFF1976D2),        // azul
+        "Espalda" to Color(0xFFEF5350),      // rojo
+        "Hombros" to Color(0xFFFFA726),     // naranja
+        "Bíceps" to Color(0xFF29B6F6),      // celeste
+        "Tríceps" to Color(0xFFAB47BC),     // púrpura
+        "Antebrazo" to Color(0xFFFFCDD2),   // rosado claro
+        "Core" to Color(0xFFFFEB3B),        // amarillo
+        "Glúteo" to Color(0xFF66BB6A),      // verde
+        "Cuádriceps" to Color(0xFF8BC34A),  // verde claro
+        "Isquios" to Color(0xFFFF7043),     // naranja quemado
+        "Pantorrilla" to Color(0xFFEC407A), // rosa fuerte
+        "Trapecio" to Color(0xFF5C6BC0)     // azul violáceo
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Leyenda por color",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        items.chunked(3).forEach { rowItems ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowItems.forEach { (label, color) ->
+                    LegendDotWithLabel(
+                        label = label,
+                        color = color,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowItems.size < 3) repeat(3 - rowItems.size) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LegendDotWithLabel(
+    label: String,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            Modifier
+                .size(12.dp)
+                .background(color, shape = MaterialTheme.shapes.small)
+        )
+        Text(label, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
 private fun HeatTile(label: String, coverage: Float, modifier: Modifier = Modifier) {
-    val s = LocalStrings.current.muscleMap
     val color = coverageToColor(coverage)
     Surface(
         color = color.copy(alpha = 0.18f),
@@ -201,9 +228,9 @@ private fun HeatTile(label: String, coverage: Float, modifier: Modifier = Modifi
             Spacer(Modifier.height(2.dp))
             val p = if (coverage.isFinite()) (coverage * 100).toInt() else 0
             val text = if (coverage < 1f) {
-                s.coverageDeficitLabel(p)
+                "Cobertura: $p% (déficit)"
             } else {
-                s.coverageLabel(p)
+                "Cobertura: $p%"
             }
             Text(
                 text,
@@ -216,17 +243,15 @@ private fun HeatTile(label: String, coverage: Float, modifier: Modifier = Modifi
 
 @Composable
 private fun Legend() {
-    val s = LocalStrings.current.muscleMap
-
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        LegendDot(s.legend0to40, Color(0xFFD32F2F))
-        LegendDot(s.legend40to70, Color(0xFFF57C00))
-        LegendDot(s.legend70to100, Color(0xFFFBC02D))
-        LegendDot(s.legend100to120, Color(0xFF388E3C))
-        LegendDot(s.legend120Plus, Color(0xFF00897B))
+        LegendDot("0–40%", Color(0xFFD32F2F))
+        LegendDot("40–70%", Color(0xFFF57C00))
+        LegendDot("70–100%", Color(0xFFFBC02D))
+        LegendDot("100–120%", Color(0xFF388E3C))
+        LegendDot("120%+", Color(0xFF00897B))
     }
 }
 
